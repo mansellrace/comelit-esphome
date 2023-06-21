@@ -114,9 +114,11 @@ Si possono realizzare anche servizi con già codificati all’interno comando e 
 
 ![Widget](/immagini/widget.jpg)
 
-Il sistema crea un evento sul log di home assistant per ogni comando ricevuto sul bus. Se non si vuole utilizzare questa funzione basta eliminare la parte di software relativa
+Il sistema crea un evento sul log di home assistant per ogni comando ricevuto sul bus. Se non si vuole utilizzare questa funzione basta eliminare la parte di software relativa.
 
 ![Log](/immagini/log.png)
+
+Il log viene "agganciato" all'entità sensor.comelit_stato
 
 ## Installazione
 

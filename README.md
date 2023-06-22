@@ -38,7 +38,9 @@ L’alimentazione del modulo switching è presa a valle di un filtro RC passa ba
 
 ### Sezione ricezione dati
 
-Come nel circuito a cui mi sono ispirato, il segnale dati viene captato dal bus grazie a un filtro di tipo passa alto, nello schema composto da R5 e C1, rispettivamente da 10kΩ e 10nF.
+Come nel circuito a cui mi sono ispirato, il segnale dati viene captato dal bus grazie a un filtro di tipo passa alto, nello schema composto da R5 e C1, rispettivamente da 10kΩ e 1nF. 
+
+Il filtro ha una frequenza di taglio di circa 15kHz, sufficienti a ridurre le interferenze dovute alla comunicazione audio in banda base.
 
 Il segnale ai capi della resistenza viene quindi dato in ingresso ad un doppio comparatore LM2903 con uscita di tipo open collector. La soglia con cui viene comparato il segnale è posta a circa 0.25v tramite un partitore resistivo.
 

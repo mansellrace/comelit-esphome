@@ -26,19 +26,28 @@ Lo scambio di informazioni (comandi) tra posto interno e posto esterno avviene a
 
 ### Sezione alimentazione
 
-Il circuito ha la possibilità di essere alimentato direttamente dal bus. 
+Il circuito ha la possibilità di essere alimentato direttamente dal bus.
+
 Ho deciso di utilizzare un modulo switching step-down DD4012SA che supporta fino a 40v in ingresso e dà in uscita 5v.
+
 L’intero circuito assorbe circa 20mA dalla linea bus, che salgono a 160mA durante la trasmissione dati.
+
 Ho posto in ingresso un fusibile da 250mA a protezione del circuito, seguito da un ponte raddrizzatore.
+
 L’alimentazione del modulo switching è presa a valle di un filtro RC passa basso, formato da R1 e C2, che elimina le fluttuazioni dovute alla trasmissione dati. Dopo diverse prove il miglior compromesso tra riduzione del rumore ricevuto e indotto sul bus e potenza dissipata l’ho ottenuto con una resistenza da 220Ω, che dissipa appena 75mW in maniera continuativa.
 
 ### Sezione ricezione dati
 
-Come nel circuito a cui mi sono ispirato, il segnale dati viene captato dal bus grazie a un filtro di tipo passa alto, nello schema composto da R5 e C1, rispettivamente da 10kΩ e 10nF. 
-Il segnale ai capi della resistenza viene quindi dato in ingresso ad un doppio comparatore LM2903 con uscita di tipo open collector. La soglia con cui viene comparato il segnale è posta a circa 0.25v tramite un partitore resistivo. 
-Per semplificare la ricezione del segnale da parte del Wemos ho deciso di inserire uno stadio monostabile, eliminando la portante a 25 kHz e sfruttando il secondo comparatore già a bordo dell’LM2903. 
+Come nel circuito a cui mi sono ispirato, il segnale dati viene captato dal bus grazie a un filtro di tipo passa alto, nello schema composto da R5 e C1, rispettivamente da 10kΩ e 10nF.
+
+Il segnale ai capi della resistenza viene quindi dato in ingresso ad un doppio comparatore LM2903 con uscita di tipo open collector. La soglia con cui viene comparato il segnale è posta a circa 0.25v tramite un partitore resistivo.
+
+Per semplificare la ricezione del segnale da parte del Wemos ho deciso di inserire uno stadio monostabile, eliminando la portante a 25 kHz e sfruttando il secondo comparatore già a bordo dell’LM2903.
+
 In presenza di segnale, l’uscita del primo comparatore viene portata bassa scaricando il condensatore C3 da 10nF, in mancanza di segnale il condensatore si carica attraverso la resistenza R9 da 220kΩ.
+
 La tensione ai capi del condensatore viene comparata con una seconda tensione fissa, ricavata dallo stesso partitore usato sul primo stadio. L’uscita del secondo comparatore viene mandata al Wemos, che quindi si ritroverà in ingresso i pacchetti dati privati dell’oscillazione della portante.
+
 In presenza di un qualsiasi segnale in ingresso, l’uscita del secondo comparatore rimane alta per ulteriori 1.5ms oltre al tempo in cui il segnale sul bus resta alto. Per demodulare la portante dei comandi sarebbe bastato un tempo di 20µs, ma aumentare così tanto la tempistica mi ha permesso di ridurre la captazione di ulteriori segnali presenti sul bus, che disturbano la ricezione e la decodifica dei comandi.
 
 ### Sezione trasmissione dati

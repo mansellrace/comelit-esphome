@@ -1,6 +1,8 @@
 # comelit-esphome
 Interfaccia Comelit Simplebus per Home Assistant
 
+**Novità:** *Esiste anche un side-project che condivide lo stesso hardware: [comelit-esp8266](https://github.com/mansellrace/comelit-esp8266). è una versione semplificata e slegata dal mondo di home assistant, nata per permettere la decodifica e l'interfacciamento dello stesso protocollo, con lo stesso hardware, per interfacciare il bus comelit anche sistemi domotici diversi, per costruire ripetitori di chiamata citofonica, etc.*
+
 ## Introduzione al progetto
 
 Inizialmente volevo modificare il mio citofono Comelit mini vivavoce 6721W per interfacciarlo ad Home Assistant, per poter ricevere una notifica quando qualcuno mi citofona, e per poter aprire i due portoni comandati dal citofono comodamente da remoto.

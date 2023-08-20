@@ -116,6 +116,7 @@ remote_receiver:
     inverted: false
   #dump: raw
   idle: 10ms
+  filter: 250us
   buffer_size: 3k
   on_raw:
     then:

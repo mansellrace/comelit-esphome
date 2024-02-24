@@ -54,7 +54,9 @@ If this parameter is set to `none` no event will be generated.
 Binary sensor
 ===================
 
-You can configure binary sensors that go on when a particular combination of command and address is received from the bus. You can also set only the address, in this case the default command is 50, which occurs when a call is made from the outside intercom to the inside intercom.
+You can configure binary sensors that go on when a particular combination of command and address is received from the bus.
+
+You can also set only the address, in this case the default command is 50, which occurs when a call is made from the outside intercom to the inside intercom.
 
 
 Configuration examples:
@@ -83,7 +85,10 @@ Configuration examples:
 
 Event
 ========
-If the [event](#eventlist) parameter is not set to `none`, an event will be generated each time a command is received. You can intercept events on home assistant on the page "developer tools -> event"
+If the [event](#eventlist) parameter is not set to `none`, an event will be generated each time a command is received.
+
+You can intercept events on home assistant on the page "developer tools -> event"
+
 Each time a command is received, an event like this will be generated:
 
 	event_type: esphome.comelit
@@ -99,6 +104,7 @@ Each time a command is received, an event like this will be generated:
 	  user_id: null
 
 To intercept this event to trigger an home assistant automation, you can use a trigger of type "event."
+
 The trigger configuration will look like this:
 
 	platform: event

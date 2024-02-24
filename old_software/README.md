@@ -7,7 +7,7 @@ Interfaccia Comelit Simplebus per Home Assistant
 
 Inizialmente volevo modificare il mio citofono Comelit mini vivavoce 6721W per interfacciarlo ad Home Assistant, per poter ricevere una notifica quando qualcuno mi citofona, e per poter aprire i due portoni comandati dal citofono comodamente da remoto.
 
-![Comelit mini](/immagini/comelit_mini.jpg)
+![Comelit mini](immagini/comelit_mini.jpg)
 
 Il citofono lavora su bus a 2 fili Simplebus2 proprietario di Comelit.
 Volevo collegarmi direttamente al circuito stampato del posto interno, il quale però utilizza lo stesso altoparlante per la suoneria e per la chiamata vocale, ha pulsanti a sfioramento, la situazione si faceva complicata.
@@ -24,7 +24,7 @@ Nella mia realizzazione ho utilizzato un Wemos d1 mini con firmware basato su Es
 Ho adattato il circuito proposto da **[plusvic](https://github.com/plusvic/simplebus2-intercom)** modificandolo per adattarlo alla situazione del mio impianto condominiale e alle necessità di esphome. La tensione a vuoto che rilevo sui fili del bus è di circa 35V, e il segnale dati è sovrapposto alla tensione DC. 
 Lo scambio di informazioni (comandi) tra posto interno e posto esterno avviene attraverso un segnale dati modulato a 25kHz, nel mio caso di ampiezza picco-picco variabile da 0.5V a 5V in base alla distanza del dispositivo che sta trasmettendo. Quando viene avviata la comunicazione audio/video si aggiunge un ulteriore segnale ad alta frequenza.
 
-![Schema elettrico](/immagini/schema_elettrico.png)
+![Schema elettrico](immagini/schema_elettrico.png)
 
 ### Sezione alimentazione
 
@@ -66,7 +66,7 @@ Nel mio caso, con valori resistivi più alti, i comandi inviati dal wemos non se
 
 Inizialmente ho realizzato il circuito su breadboard, una volta messo a punto lo schema definitivo ho realizzato un pcb utilizzando componenti in tecnologia SMD, grande appena 46 x 29 mm, ovvero poco più grande del wemos D1 mini. Nel mio caso è entrato perfettamente dentro la scatoletta tonda predisposta dietro al citofono.
 
-![pcb_3d](/immagini/pcb_3d.png) ![pcb](/immagini/pcb.png)
+![pcb_3d](immagini/pcb_3d.png) ![pcb](immagini/pcb.png)
 
 Se l’impianto citofonico è alimentato dal contatore condominiale potreste decidere di non alimentare il wemos dal bus, non montando il modulo switching e alimentando il wemos a 5v in maniera indipendente. In tale maniera il consumo del wemos (0.5w) non graverà sull’alimentazione elettrica condominiale
 
@@ -125,11 +125,11 @@ La funzione che si occupa della codifica risiede all’interno del file comelit.
 
 Si possono realizzare anche servizi con già codificati all’interno comando e indirizzo fissati precedentemente. Si potrà creare quindi un comodo widget sul proprio smartphone, il quale richiamerà semplicemente il servizio “esphome.apri_portone” per poter aprire il portone con un tocco.
 
-![Widget](/immagini/widget.jpg)
+![Widget](immagini/widget.jpg)
 
 Il sistema crea un evento sul log di home assistant per ogni comando ricevuto sul bus. Se non si vuole utilizzare questa funzione basta eliminare la parte di software relativa.
 
-![Log](/immagini/log.png)
+![Log](immagini/log.png)
 
 Il log viene "agganciato" all'entità sensor.comelit_stato
 

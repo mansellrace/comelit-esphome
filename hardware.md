@@ -44,10 +44,10 @@ When the input voltage decreases, it requires more current from the bus to compe
 But requiring more current generates more drop on the filter resistors, so the input voltage to the switching drops and the system collapses.
 With wemos consumption, the situation becomes unstable below 18v from the bus.
  
-In some systems on restarting the power supply creates a soft start, so sometimes the voltage can be below 18v.
-To protect the circuit, I added a protection stage that enables the switching regulator under certain conditions.
+In some intercom systems, after a power failure, the power supply slowly switches the bus on, so sometimes the voltage can be below 18v.
+To protect the circuit, I added a protection stage that enables the switching regulator only under certain conditions.
 
-The heart of this circuit is a comparator made with LM2903. It compares the voltage across the capacitors feeding the switching integrated with a reference obtained with zener stabilization. there is also a hysteresis. The circuit enables the switching integrated when the input voltage is at least 20.5v and when it is stable for a few seconds.
+The heart of this circuit is a comparator made with LM2903. It compares the voltage across the capacitors that feeding the switching ic with a reference obtained with zener stabilization. There is also a hysteresis. The circuit enables the switching ic when the input voltage is at least 20.5v and when it is stable for a few seconds.
 After enabling it, the turn-off threshold is lowered by D5, R14 to about 18v.
 In this way, the circuit never becomes unstable.
 
@@ -70,6 +70,8 @@ In this way the input sensitivity can be adjusted to two levels according to the
 To simplify signal reception by the Wemos, I decided to insert a monostable stage, eliminating the 25-kHz carrier and taking advantage of the second comparator already on board the LM2903.
 
 In the presence of a signal, the output of the first comparator is brought low by discharging the 10nF capacitor C9; in the absence of a signal, the capacitor is charged through the 220kΩ resistor R24.
+
+![rx_filter](images/rx_filter.png)
 
 The voltage at the ends of the capacitor is compared with a second fixed voltage obtained from the same divider used on the first stage.
 The output of the second comparator is sent to the Wemos, which will then have data packets stripped of carrier oscillation as input.

@@ -54,7 +54,7 @@ Prerequisite: Home assistant and esphome add-on installed
 
 ## Commands description
 
-An explanation of the commands that can be found on the bus can be found [here](commands.md)
+An explanation of the commands that can be found on the bus can be found [here]([commands.md](protocol.md#list-of-commands))
 
 ## Purchase materials and pcb
 

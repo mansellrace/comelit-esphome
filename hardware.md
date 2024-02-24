@@ -73,7 +73,7 @@ In the presence of a signal, the output of the first comparator is brought low b
 
 ![rx_filter](images/rx_filter.png)
 
-The voltage at the ends of the capacitor is compared with a second fixed voltage obtained from the same divider used on the first stage.
+The voltage at the capacitor is compared with a second fixed voltage obtained from the 5v.
 The output of the second comparator is sent to the Wemos, which will then have data packets stripped of carrier oscillation as input.
 
 In the presence of any input signal, the output of the second comparator remains high for an additional 1.5ms beyond the time the signal on the bus remains high.

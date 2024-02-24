@@ -1,15 +1,21 @@
 Comelit Intercom component
 ===================
 
-The ``comelit_intercom`` allows you to easily interface the esphome-comelit project on home assistant
+The ``comelit_intercom`` allows you to easily interface the esphome-comelit project on esphome and home assistant
 
-    # Basic configuration entry
-    
+Basic esphome configuration entry:
+
+    external_components:
+      - source: github://mansellrace/comelit-esphome
+
     comelit_intercom:
 
  
 Example of a configuration entry, which generates a binary_sensor entity that goes to on when receiving a call to internal intercom 10, and a button entity that when pressed sends the command to open external door
-    
+
+    external_components:
+      - source: github://mansellrace/comelit-esphome
+      
     comelit_intercom:
     
 	binary_sensor:

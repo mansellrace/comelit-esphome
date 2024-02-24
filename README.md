@@ -1,6 +1,7 @@
 # comelit-esphome
 Comelit Simplebus Interface for Home Assistant
 
+![render](/images/render_fronte.png) ![render2](/images/render_retro.png)
 
 **Big news:**  The hardware design has evolved, and has reached hw revision 2.5. The main changes are in the power supply section, now using a wide-range switching IC directly soldered to the pcb. More details in the [updates section](#updates)
 
@@ -22,7 +23,7 @@ I then discovered the wonderful work of **[plusvic](https://github.com/plusvic/s
 
 In my implementation I used a Wemos d1 mini with Esphome-based firmware for easy integration on Home Assistant. Can also interface with Homey Pro
 
-![PCB](/images/pcb.jpg)
+![PCB2](/images/pcb2.jpg) ![PCB](/images/pcb.jpg)
 
 The project makes it possible to receive and send commands that pass through the comelit bus, such as calling an internal intercom, opening a door, etc.
 

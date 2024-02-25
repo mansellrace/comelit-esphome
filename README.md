@@ -66,6 +66,7 @@ If you are interested, please contact me at mansellrace@gmail.com
 - **2023, June**: First hardware revision and first available software
 - **2023, August**: Hw version 2.0, first tests with onboard switching regulator, added pads to easily connect to some external pins
 - **2023, September**: Hw version 2.2, added protection circuit for power section. Added dynamic resistor in series with power supply.
-- **2023, November**: Hw version 2.4, minor adjustments to power section, added possibility of simultaneous bus and usb connection
+- **2023, November**: Hw version 2.4, minor adjustments to power section, added possibility of simultaneous bus and usb connection.
+- **2023, November**: Thanks to [@monxas](https://github.com/monxas) for creating a box that can be 3d printed :)
 - **2024, January**: Hw version 2.5, added ability to adjust reception sensitivity to two levels
 - **2024, February**: Release of the new software. Now the project is based on an external component of esphome and configuration is much easier.

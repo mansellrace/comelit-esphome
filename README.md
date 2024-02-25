@@ -46,6 +46,12 @@ The pcb is powered directly from the bus, and is to be connected directly in par
 ## First set-up
 Prerequisite: Home assistant and esphome add-on installed
 - Connect the wemos to the pc and add it to your esphome configuration.  Add the following lines to the configuration file at the bottom and then reinstall the firmware:
+
+      external_components:
+        - source: github://mansellrace/comelit-esphome
+  
+      comelit_intercom:
+  
 - Connect the pcb to the bus and observe the esphome log. You should see the commands coming through the bus. Try commanding the outside door to open, you will find out what the address of your intercom is.
 - There are two ways to receive commands, by event or by binary sensor.
   - For the standard configuration, a home assistant event is generated for each command received. You can intercept this event to trigger an automation.  [More information here](components/README.md#event)

@@ -26,8 +26,8 @@ Example of a configuration entry, which generates a binary_sensor entity that go
 	    name: Open Door
 	    on_press:
 	      - comelit_intercom.send:
-	        command: 16
-	        address: 10
+	          command: 16
+	          address: 10
 
 More configuration examples are available at this link: (under construction)
 
@@ -133,8 +133,8 @@ The action can be easily inserted into a button type entity:
 	    name: Open Door
 	    on_press:
 	      - comelit_intercom.send:
-	        command: 16
-	        address: 5
+	          command: 16
+	          address: 5
 
 
 ### Service:

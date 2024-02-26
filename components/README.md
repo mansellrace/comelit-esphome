@@ -62,12 +62,12 @@ You can also set only the address, in this case the default command is 50, which
 Configuration examples:
 
 	binary_sensor:
-      - platform: comelit_intercom
+	  - platform: comelit_intercom
 	    address: 16
 	  - platform: comelit_intercom
 	    command: 29
-    	address: 1
-     	name: Internal Door opened
+	    address: 1
+	    name: Internal Door opened
 	    auto_off: 60s
 
 - **address** (**Required**, int): The address that when received sets the sensor to on .

@@ -146,7 +146,7 @@ void ComelitComponent::loop() {
     ESP_LOGD(TAG, "Received Raw with size %i", temp_.size());
     this->dump(temp_);
   }
-  if (this->temp_.size() == 38) {
+  if ((this->temp_.size() == 38) || (this->temp_.size() == 72)) {
     comelit_decode(temp_);
   }
 }
@@ -158,17 +158,32 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
   auto capi = new esphome::api::CustomAPIDevice();
   char message[18];
   int bits = 0;
-  for (uint16_t i = 1; i < src.size() - 1; i = i + 2) {
-    const uint16_t value = src[i];
-      if (value < 2500 && value > 1000) {
-        message[bits] = 0;
-        bits += 1;
-      }
-      else if (value < 6200 && value > 3500) {
-        message[bits] = 1;
-        bits += 1;
-      }
+  if (src.size() == 38) {
+    for (uint16_t i = 1; i < src.size() - 1; i = i + 2) {
+      const uint16_t value = src[i];
+        if (value < 2500 && value > 1000) {
+          message[bits] = 0;
+          bits += 1;
+        }
+        else if (value < 6200 && value > 3500) {
+          message[bits] = 1;
+          bits += 1;
+        }
+    }
+  } else if (src.size() == 72) {
+    for (uint16_t i = 3; i < src.size() - 1; i = i + 4) {
+      const uint16_t value = src[i];
+        if (value < 2500 && value > 1000) {
+          message[bits] = 0;
+          bits += 1;
+        }
+        else if (value < 6200 && value > 3500) {
+          message[bits] = 1;
+          bits += 1;
+        }
+    }
   }
+
   if (bits == 18) {
     int sum = 0;
     int checksum = 0;

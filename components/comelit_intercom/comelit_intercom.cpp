@@ -170,7 +170,7 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
           bits += 1;
         }
     }
-  } else if (src.size() == 72) {
+  } else if (src.size() == 76) {
     for (uint16_t i = 3; i < src.size() - 1; i = i + 4) {
       const uint16_t value = src[i];
         if (value < 2500 && value > 1000) {

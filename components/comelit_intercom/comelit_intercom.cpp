@@ -59,7 +59,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.0.3:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   switch (hw_version_) {
@@ -146,7 +146,7 @@ void ComelitComponent::loop() {
     ESP_LOGD(TAG, "Received Raw with size %i", temp_.size());
     this->dump(temp_);
   }
-  if ((this->temp_.size() == 38) || (this->temp_.size() == 72)) {
+  if ((this->temp_.size() == 38) || (this->temp_.size() == 76)) {
     comelit_decode(temp_);
   }
 }
@@ -171,6 +171,7 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
         }
     }
   } else if (src.size() == 76) {
+    ESP_LOGD(TAG, "Received 76Raw");
     for (uint16_t i = 3; i < src.size() - 1; i = i + 4) {
       const uint16_t value = src[i];
         if (value < 2500 && value > 1000) {
@@ -182,6 +183,7 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
           bits += 1;
         }
     }
+    ESP_LOGD(TAG, "Out of for loop 76, bits %i", bits);
   }
 
   if (bits == 18) {

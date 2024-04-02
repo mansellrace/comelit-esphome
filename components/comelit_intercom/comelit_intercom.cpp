@@ -59,7 +59,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.0.4:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.0.5:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   switch (hw_version_) {
@@ -142,9 +142,12 @@ void ComelitComponent::loop() {
   s.buffer_read_at = (s.buffer_size + s.buffer_read_at - 1) % s.buffer_size;
   this->temp_.push_back(this->idle_us_);
 
-  if ((this->temp_.size() > 1 && this->dump_raw_) || (this->temp_.size() == 76)) {
+  if (this->temp_.size() > 1 && this->dump_raw_) {
     ESP_LOGD(TAG, "Received Raw with size %i", temp_.size());
     this->dump(temp_);
+  }
+  if (this->temp_.size() == 76 && !this->dump_raw_) {
+    ESP_LOGD(TAG, "Received Raw with size 76");
   }
   if ((this->temp_.size() == 38) || (this->temp_.size() == 76)) {
     comelit_decode(temp_);

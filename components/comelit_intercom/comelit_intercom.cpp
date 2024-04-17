@@ -59,7 +59,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.0.5:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.0.6:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   switch (hw_version_) {
@@ -105,7 +105,11 @@ void ComelitComponent::loop() {
     }
   }
   if (this->sending){
-    sending_loop();
+    if (this->send_76){
+      sending_loop_76();
+    } else {
+      sending_loop();
+    }
     return;
   }
 
@@ -203,7 +207,7 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
       }
       this->command = (msgAddr[5] * 32) + (msgAddr[4] * 16) + (msgAddr[3] * 8) + (msgAddr[2] * 4) + (msgAddr[1] * 2) + msgAddr[0];
       this->address = (msgCode[7] * 128) + (msgCode[6] * 64) + (msgCode[5] * 32) + (msgCode[4] * 16) + (msgCode[3] * 8) + (msgCode[2] * 4) + (msgCode[1] * 2) + msgCode[0];
-      if (this->command != 63 && this->address != 255){
+      if (this->command != 63){
         ESP_LOGD(TAG, "Received command %i, address %i", this->command, this->address);
         
         if (strcmp(event_, "esphome.none") != 0) {
@@ -305,7 +309,13 @@ void ComelitComponent::send_command(ComelitIntercomData data) {
     ESP_LOGD(TAG, "Sending of command %i address %i cancelled, another sending is in progress", data.command, data.address);
     //return;
   }
-  ESP_LOGD(TAG, "Sending command %i, address %i", data.command, data.address);
+  if (data.send_76){
+    ESP_LOGD(TAG, "Sending 76 bit command %i, address %i", data.command, data.address);
+    this->send_76 = true;
+  } else {
+    ESP_LOGD(TAG, "Sending command %i, address %i", data.command, data.address);
+    this->send_76 = false;
+  }
   this->rx_pin_->detach_interrupt();
   int checksum_counter = 0;
 
@@ -386,6 +396,74 @@ void ComelitComponent::sending_loop() {
       } else {                                    // no signal generation
         if (now < this->send_next_bit) return;
         this->send_next_bit = now + 3000;
+        this->send_next_change = now + 20;
+        this->send_index++;
+      }
+    } else {                                      // end of transmission
+      this->sending = false;
+      this->tx_pin_->digital_write(false);
+      this->send_next_bit = 0;
+      this->send_next_change = 0;
+      this->send_index = 0;
+      this->rx_pin_->attach_interrupt(ComelitComponentStore::gpio_intr, &this->store_, gpio::INTERRUPT_ANY_EDGE);
+    }
+  }
+}
+
+void ComelitComponent::sending_loop_76() {
+  uint32_t now = micros();
+  if (this->preamble) {
+    if (this->send_next_bit == 0 && this->send_next_change == 0) {  // initializing
+      this->tx_pin_->digital_write(true);
+      this->send_next_bit = now + 3200;
+      this->send_next_change = now + 20;
+      while (this->send_next_bit >= micros()) {
+        if (this->send_next_change <= micros()) {
+          if (this->tx_pin_->digital_read()){
+            this->tx_pin_->digital_write(false);
+            this->send_next_change = this->send_next_change + 3150;
+          } else {
+            this->tx_pin_->digital_write(true);
+            this->send_next_change = this->send_next_change + 20;
+          }
+        }
+      }
+      this->send_next_bit = 0;
+      this->send_next_change = this->send_next_change + 13400;
+      this->tx_pin_->digital_write(false);
+      return;
+    } else {                                     // long pause of initializing
+      if (now < this->send_next_change) return;
+      this->preamble = false;
+      return;
+    }
+  } else {                                       // bit sending routine, preamble ended
+    if (this->send_index < 19) {
+      if (this->send_next_change > 0) {           // carrier generation
+        this->tx_pin_->digital_write(true);
+        this->send_next_bit = now + 3200;
+        this->send_next_change = now + 20;
+        while (this->send_next_bit >= micros()) {
+          if (this->send_next_change < micros()) {
+            if (this->tx_pin_->digital_read()){
+              this->tx_pin_->digital_write(false);
+              this->send_next_change = this->send_next_change + 3150;
+            } else {
+              this->tx_pin_->digital_write(true);
+              this->send_next_change = this->send_next_change + 20;
+            }
+          }
+        }
+        this->send_next_change = 0;
+        this->tx_pin_->digital_write(false);
+        if (this->send_buffer[this->send_index]) {
+          this->send_next_bit = this->send_next_bit + 5800;
+        } else {
+          this->send_next_bit = this->send_next_bit + 2800;
+        }
+      } else {                                    // no signal generation
+        if (now < this->send_next_bit) return;
+        this->send_next_bit = now + 3200;
         this->send_next_change = now + 20;
         this->send_index++;
       }

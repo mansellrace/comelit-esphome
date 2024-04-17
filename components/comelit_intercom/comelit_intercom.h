@@ -28,6 +28,7 @@ enum LanguageType {
 struct ComelitIntercomData {
   uint16_t command;
   uint16_t address;
+  bool send_76;
 };
 
 class ComelitIntercomListener {
@@ -68,6 +69,7 @@ class ComelitComponent : public Component {
   void dump(std::vector<uint16_t>) const;
   std::string logbook_gen();
   void sending_loop();
+  void sending_loop_76();
 
   void set_rx_pin(InternalGPIOPin *pin) { rx_pin_ = pin; }
   void set_tx_pin(InternalGPIOPin *pin) { tx_pin_ = pin; }
@@ -88,7 +90,7 @@ class ComelitComponent : public Component {
   void register_listener(ComelitIntercomListener *listener);
   void send_command(ComelitIntercomData data);
   bool send_buffer[19];
-  bool sending, preamble;
+  bool sending, preamble, send_76;
   int send_index;
   uint32_t send_next_bit;
   uint32_t send_next_change;
@@ -120,6 +122,25 @@ template<typename... Ts> class ComelitIntercomSendAction : public Action<Ts...> 
 
   void play(Ts... x) {
     ComelitIntercomData data{};
+    data.send_76 = false;
+    data.command = this->command_.value(x...);
+    data.address = this->address_.value(x...);
+    this->parent_->send_command(data);
+  }
+
+ protected:
+  ComelitComponent *parent_;
+};
+
+template<typename... Ts> class ComelitIntercomSendAction76 : public Action<Ts...> {
+ public:
+  ComelitIntercomSendAction76(ComelitComponent *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(uint16_t, command)
+  TEMPLATABLE_VALUE(uint16_t, address)
+
+  void play(Ts... x) {
+    ComelitIntercomData data{};
+    data.send_76 = true;
     data.command = this->command_.value(x...);
     data.address = this->address_.value(x...);
     this->parent_->send_command(data);

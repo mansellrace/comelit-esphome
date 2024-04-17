@@ -11,6 +11,9 @@ ComelitIntercom = comelit_intercom_ns.class_("ComelitComponent", cg.Component)
 ComelitIntercomSendAction = comelit_intercom_ns.class_(
     "ComelitIntercomSendAction", automation.Action
 )
+ComelitIntercomSendAction76 = comelit_intercom_ns.class_(
+    "ComelitIntercomSendAction76", automation.Action
+)
 
 CONF_COMELIT_ID = "comelit_intercom"
 CONF_SENSITIVITY = "sensitivity"
@@ -116,6 +119,9 @@ COMELIT_INTERCOM_SEND_SCHEMA = cv.Schema(
 
 @automation.register_action(
     "comelit_intercom.send", ComelitIntercomSendAction, COMELIT_INTERCOM_SEND_SCHEMA
+)
+@automation.register_action(
+    "comelit_intercom.send76", ComelitIntercomSendAction76, COMELIT_INTERCOM_SEND_SCHEMA
 )
 async def comelit_intercom_send_to_code(config, action_id, template_args, args):
     paren = await cg.get_variable(config[CONF_ID])

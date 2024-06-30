@@ -8,9 +8,12 @@ The transmission always begins with a 3ms pulse, followed by a 16ms silence.
 
 Then 18 bits are sent, divided as follows:
 
-the first 8 bits indicate the address. The least significant bit is transmitted first.
-the next 6 bits indicate the command, again starting with the least significant bit.
+The first 6 bits indicate the command, again starting with the least significant bit.
+
+the next 8 bits indicate the address. The least significant bit is transmitted first.
+
 the next 4 bits are checksum, they simply indicate the number of bits to 1 sent in the previous fields.
+
 For example, when I call an indoor intercom from the door station, the command 50 is sent. Suppose we call intercom #21:
 
 Command 50 = 110010

@@ -37,7 +37,7 @@ HW_TYPES = {
 
 SENSITIVITY_TYPES = {
     "2.5" : ["low", "high"],
-    "2.6" : ["1", "2", "3", "4", "5", "6"],
+    "2.6" : ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
 }
 
 LanguageType = comelit_intercom_ns.enum("Language")

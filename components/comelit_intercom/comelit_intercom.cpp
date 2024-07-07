@@ -15,18 +15,57 @@ void ComelitComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Comelit Intercom...");
 
   if (hw_version_ == HW_VERSION_TYPE_2_5) {
+    pinMode(16, INPUT);        //D0 OPEN
     if (strcmp(sensitivity_, "low") == 0) {
-      pinMode(14, INPUT);
+      pinMode(14, INPUT);      //D5 OPEN
     } else {
-      pinMode(14, OUTPUT);
-      digitalWrite(14, LOW);
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
     }
   } else if (hw_version_ == HW_VERSION_TYPE_2_6) {
     if (strcmp(sensitivity_, "1") == 0) {
-      pinMode(14, OUTPUT);
-      digitalWrite(14, HIGH);
+      pinMode(14, OUTPUT);     //D5 3.3V
+      digitalWrite(14, HIGH);  //D5 3.3V
+      pinMode(16, OUTPUT);     //D0 3.3V
+      digitalWrite(16, HIGH);  //D0 3.3V
     } else if (strcmp(sensitivity_, "2") == 0) {
-      pinMode(14, INPUT);
+      pinMode(14, OUTPUT);     //D5 3.3V
+      digitalWrite(14, HIGH);  //D5 3.3V
+      pinMode(16, INPUT);      //D0 OPEN
+    } else if (strcmp(sensitivity_, "3") == 0) {
+      pinMode(14, OUTPUT);     //D5 3.3V
+      digitalWrite(14, HIGH);  //D5 3.3V
+      pinMode(16, OUTPUT);     //D0 GND
+      digitalWrite(16, LOW);   //D0 GND
+    } else if (strcmp(sensitivity_, "4") == 0) {
+      pinMode(14, INPUT);      //D5 OPEN
+      pinMode(16, OUTPUT);     //D0 3.3V
+      digitalWrite(16, HIGH);  //D0 3.3V
+    } else if (strcmp(sensitivity_, "5") == 0) {
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
+      pinMode(16, OUTPUT);     //D0 3.3V
+      digitalWrite(16, HIGH);  //D0 3.3V
+    } else if (strcmp(sensitivity_, "6") == 0) {
+      pinMode(14, INPUT);      //D5 OPEN
+      pinMode(16, INPUT);      //D0 OPEN
+    } else if (strcmp(sensitivity_, "7") == 0) {
+      pinMode(14, INPUT);      //D5 OPEN
+      pinMode(16, OUTPUT);     //D0 GND
+      digitalWrite(16, LOW);   //D0 GND
+    } else if (strcmp(sensitivity_, "8") == 0) {
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
+      pinMode(16, INPUT);      //D0 OPEN
+    } else if (strcmp(sensitivity_, "9") == 0) {
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
+      pinMode(16, OUTPUT);     //D0 GND
+      digitalWrite(16, LOW);   //D0 GND
+    } else if (strcmp(sensitivity_, "default") == 0) {  //default = 8
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
+      pinMode(16, INPUT);      //D0 OPEN
     }
   }
 
@@ -59,7 +98,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.0.6:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.1.0:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   switch (hw_version_) {
@@ -76,15 +115,41 @@ void ComelitComponent::dump_config() {
   if (strcmp(sensitivity_, "default") == 0) {
     switch (hw_version_) {
       case HW_VERSION_TYPE_2_5:
-        ESP_LOGCONFIG(TAG, "  Sensitivity: default (high)");
+        ESP_LOGCONFIG(TAG, "  Sensitivity: default (high) 107mV");
         break;
       case HW_VERSION_TYPE_2_6:
-        ESP_LOGCONFIG(TAG, "  Sensitivity: default (3)");
+        ESP_LOGCONFIG(TAG, "  Sensitivity: default (8) 108mV");
         break;
       case HW_VERSION_TYPE_OLDER: break;
     }
   } else {
-    ESP_LOGCONFIG(TAG, "  Sensitivity: %s", sensitivity_);
+    if (hw_version_ == HW_VERSION_TYPE_2_5) {
+      if (strcmp(sensitivity_, "high") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: high  -  107mV");
+      } else if (strcmp(sensitivity_, "low") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: low  -  205mV");
+      }
+    } else if (hw_version_ == HW_VERSION_TYPE_2_6) {
+      if (strcmp(sensitivity_, "1") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 1  -  2025mV");
+      } else if (strcmp(sensitivity_, "2") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 2  -  1695mV");
+      } else if (strcmp(sensitivity_, "3") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 3  -  1377mV");
+      } else if (strcmp(sensitivity_, "4") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 4  -  1184mV");
+      } else if (strcmp(sensitivity_, "5") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 5  -  736mV");
+      } else if (strcmp(sensitivity_, "6") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 6  -  200mV");
+      } else if (strcmp(sensitivity_, "7") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 7  -  141mV");
+      } else if (strcmp(sensitivity_, "8") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 8  -  108mV");
+      } else if (strcmp(sensitivity_, "9") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 9  -  88mV");
+      }
+    }
   }
   ESP_LOGCONFIG(TAG, "  Filter: %ius", filter_us_);
   ESP_LOGCONFIG(TAG, "  Idle:   %ius", idle_us_);
@@ -415,56 +480,36 @@ void ComelitComponent::sending_loop_76() {
   if (this->preamble) {
     if (this->send_next_bit == 0 && this->send_next_change == 0) {  // initializing
       this->tx_pin_->digital_write(true);
-      this->send_next_bit = now + 3200;
-      this->send_next_change = now + 20;
+      this->send_next_bit = now + 3000;
       while (this->send_next_bit >= micros()) {
-        if (this->send_next_change <= micros()) {
-          if (this->tx_pin_->digital_read()){
-            this->tx_pin_->digital_write(false);
-            this->send_next_change = this->send_next_change + 3150;
-          } else {
-            this->tx_pin_->digital_write(true);
-            this->send_next_change = this->send_next_change + 20;
-          }
-        }
       }
       this->send_next_bit = 0;
-      this->send_next_change = this->send_next_change + 13400;
+      this->send_next_change = now + 16000;
       this->tx_pin_->digital_write(false);
       return;
     } else {                                     // long pause of initializing
       if (now < this->send_next_change) return;
+      this->send_next_bit = now + 3000;
+      this->send_next_change = now + 3020;
       this->preamble = false;
-      return;
     }
   } else {                                       // bit sending routine, preamble ended
     if (this->send_index < 19) {
       if (this->send_next_change > 0) {           // carrier generation
         this->tx_pin_->digital_write(true);
-        this->send_next_bit = now + 3200;
-        this->send_next_change = now + 20;
         while (this->send_next_bit >= micros()) {
-          if (this->send_next_change < micros()) {
-            if (this->tx_pin_->digital_read()){
-              this->tx_pin_->digital_write(false);
-              this->send_next_change = this->send_next_change + 3150;
-            } else {
-              this->tx_pin_->digital_write(true);
-              this->send_next_change = this->send_next_change + 20;
-            }
-          }
         }
         this->send_next_change = 0;
         this->tx_pin_->digital_write(false);
         if (this->send_buffer[this->send_index]) {
-          this->send_next_bit = this->send_next_bit + 5800;
+          this->send_next_bit = this->send_next_bit + 6000;
         } else {
-          this->send_next_bit = this->send_next_bit + 2800;
+          this->send_next_bit = this->send_next_bit + 3000;
         }
       } else {                                    // no signal generation
         if (now < this->send_next_bit) return;
-        this->send_next_bit = now + 3200;
-        this->send_next_change = now + 20;
+        this->send_next_bit = now + 3000;
+        this->send_next_change = now + 3020;
         this->send_index++;
       }
     } else {                                      // end of transmission

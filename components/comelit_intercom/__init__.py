@@ -11,9 +11,7 @@ ComelitIntercom = comelit_intercom_ns.class_("ComelitComponent", cg.Component)
 ComelitIntercomSendAction = comelit_intercom_ns.class_(
     "ComelitIntercomSendAction", automation.Action
 )
-ComelitIntercomSendAction76 = comelit_intercom_ns.class_(
-    "ComelitIntercomSendAction76", automation.Action
-)
+
 
 CONF_COMELIT_ID = "comelit_intercom"
 CONF_SENSITIVITY = "sensitivity"
@@ -26,6 +24,7 @@ CONF_DUMP = "dump"
 CONF_EVENT = "event"
 CONF_COMMAND = "command"
 CONF_ADDRESS = "address"
+CONF_SIMPLEBUS1 = "simplebus_1"
 MULTI_CONF = False
 
 HardwareType = comelit_intercom_ns.enum("Hw_Version")
@@ -78,6 +77,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_BUFFER_SIZE, default="400b"): cv.validate_bytes,
             cv.Optional(CONF_DUMP, default=False): cv.boolean,
             cv.Optional(CONF_EVENT, default="comelit"): cv.string,
+            cv.Optional(CONF_SIMPLEBUS1, default=False): cv.boolean,
         }   
     )
     .extend(cv.COMPONENT_SCHEMA),
@@ -106,6 +106,7 @@ async def to_code(config):
     cg.add(var.set_buffer_size(config[CONF_BUFFER_SIZE]))
     cg.add(var.set_dump(config[CONF_DUMP]))
     cg.add(var.set_event("esphome." + config[CONF_EVENT]))
+    cg.add(var.set_simplebus_1(config[CONF_SIMPLEBUS1]))
 
 
 COMELIT_INTERCOM_SEND_SCHEMA = cv.Schema(
@@ -119,9 +120,6 @@ COMELIT_INTERCOM_SEND_SCHEMA = cv.Schema(
 
 @automation.register_action(
     "comelit_intercom.send", ComelitIntercomSendAction, COMELIT_INTERCOM_SEND_SCHEMA
-)
-@automation.register_action(
-    "comelit_intercom.send76", ComelitIntercomSendAction76, COMELIT_INTERCOM_SEND_SCHEMA
 )
 async def comelit_intercom_send_to_code(config, action_id, template_args, args):
     paren = await cg.get_variable(config[CONF_ID])

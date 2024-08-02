@@ -98,7 +98,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.1.0:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.2.0:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   switch (hw_version_) {
@@ -155,6 +155,11 @@ void ComelitComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  Idle:   %ius", idle_us_);
   ESP_LOGCONFIG(TAG, "  Buffer: %ib", buffer_size_);
   if (dump_raw_) ESP_LOGCONFIG(TAG, "  Dump raw value: True");
+  if (simplebus_1_) {
+    ESP_LOGCONFIG(TAG, "  Simplebus tx protocol: 1");
+  } else {
+    ESP_LOGCONFIG(TAG, "  Simplebus tx protocol: 2");
+  }
   if (strcmp(event_, "esphome.none") != 0) {
     ESP_LOGCONFIG(TAG, "  Event: %s", event_);
   } else {
@@ -170,10 +175,10 @@ void ComelitComponent::loop() {
     }
   }
   if (this->sending){
-    if (this->send_76){
-      sending_loop_76();
+    if (this->simplebus_1_){
+      sending_loop_simplebus_1();
     } else {
-      sending_loop();
+      sending_loop_simplebus_2();
     }
     return;
   }
@@ -215,8 +220,9 @@ void ComelitComponent::loop() {
     ESP_LOGD(TAG, "Received Raw with size %i", temp_.size());
     this->dump(temp_);
   }
-  if (this->temp_.size() == 76 && !this->dump_raw_) {
-    ESP_LOGD(TAG, "Received Raw with size 76");
+  if (this->temp_.size() == 76 && this->simplebus_1_ == false) {
+    ESP_LOGD(TAG, "Warning! received simplebus 1 command but your transmission section is set to simplebus 2.");
+    ESP_LOGD(TAG, "Maybe you need to set        simplebus_1: true");
   }
   if ((this->temp_.size() == 38) || (this->temp_.size() == 76)) {
     comelit_decode(temp_);
@@ -372,14 +378,12 @@ void ComelitComponent::register_listener(ComelitIntercomListener *listener) {
 void ComelitComponent::send_command(ComelitIntercomData data) {
   if (this->sending){
     ESP_LOGD(TAG, "Sending of command %i address %i cancelled, another sending is in progress", data.command, data.address);
-    //return;
+    return;
   }
-  if (data.send_76){
-    ESP_LOGD(TAG, "Sending 76 bit command %i, address %i", data.command, data.address);
-    this->send_76 = true;
+  if (this->simplebus_1_){
+    ESP_LOGD(TAG, "Simplebus 1: Sending command %i, address %i", data.command, data.address);
   } else {
-    ESP_LOGD(TAG, "Sending command %i, address %i", data.command, data.address);
-    this->send_76 = false;
+    ESP_LOGD(TAG, "Simplebus 2: Sending command %i, address %i", data.command, data.address);
   }
   this->rx_pin_->detach_interrupt();
   int checksum_counter = 0;
@@ -419,7 +423,7 @@ void ComelitComponent::send_command(ComelitIntercomData data) {
   this->preamble = true;
 }
 
-void ComelitComponent::sending_loop() {
+void ComelitComponent::sending_loop_simplebus_2() {
   uint32_t now = micros();
   if (this->preamble) {
     if (this->send_next_bit == 0 && this->send_next_change == 0) {  // initializing
@@ -475,7 +479,7 @@ void ComelitComponent::sending_loop() {
   }
 }
 
-void ComelitComponent::sending_loop_76() {
+void ComelitComponent::sending_loop_simplebus_1() {
   uint32_t now = micros();
   if (this->preamble) {
     if (this->send_next_bit == 0 && this->send_next_change == 0) {  // initializing

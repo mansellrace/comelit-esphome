@@ -15,18 +15,57 @@ void ComelitComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Comelit Intercom...");
 
   if (hw_version_ == HW_VERSION_TYPE_2_5) {
+    pinMode(16, INPUT);        //D0 OPEN
     if (strcmp(sensitivity_, "low") == 0) {
-      pinMode(14, INPUT);
+      pinMode(14, INPUT);      //D5 OPEN
     } else {
-      pinMode(14, OUTPUT);
-      digitalWrite(14, LOW);
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
     }
   } else if (hw_version_ == HW_VERSION_TYPE_2_6) {
     if (strcmp(sensitivity_, "1") == 0) {
-      pinMode(14, OUTPUT);
-      digitalWrite(14, HIGH);
+      pinMode(14, OUTPUT);     //D5 3.3V
+      digitalWrite(14, HIGH);  //D5 3.3V
+      pinMode(16, OUTPUT);     //D0 3.3V
+      digitalWrite(16, HIGH);  //D0 3.3V
     } else if (strcmp(sensitivity_, "2") == 0) {
-      pinMode(14, INPUT);
+      pinMode(14, OUTPUT);     //D5 3.3V
+      digitalWrite(14, HIGH);  //D5 3.3V
+      pinMode(16, INPUT);      //D0 OPEN
+    } else if (strcmp(sensitivity_, "3") == 0) {
+      pinMode(14, OUTPUT);     //D5 3.3V
+      digitalWrite(14, HIGH);  //D5 3.3V
+      pinMode(16, OUTPUT);     //D0 GND
+      digitalWrite(16, LOW);   //D0 GND
+    } else if (strcmp(sensitivity_, "4") == 0) {
+      pinMode(14, INPUT);      //D5 OPEN
+      pinMode(16, OUTPUT);     //D0 3.3V
+      digitalWrite(16, HIGH);  //D0 3.3V
+    } else if (strcmp(sensitivity_, "5") == 0) {
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
+      pinMode(16, OUTPUT);     //D0 3.3V
+      digitalWrite(16, HIGH);  //D0 3.3V
+    } else if (strcmp(sensitivity_, "6") == 0) {
+      pinMode(14, INPUT);      //D5 OPEN
+      pinMode(16, INPUT);      //D0 OPEN
+    } else if (strcmp(sensitivity_, "7") == 0) {
+      pinMode(14, INPUT);      //D5 OPEN
+      pinMode(16, OUTPUT);     //D0 GND
+      digitalWrite(16, LOW);   //D0 GND
+    } else if (strcmp(sensitivity_, "8") == 0) {
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
+      pinMode(16, INPUT);      //D0 OPEN
+    } else if (strcmp(sensitivity_, "9") == 0) {
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
+      pinMode(16, OUTPUT);     //D0 GND
+      digitalWrite(16, LOW);   //D0 GND
+    } else if (strcmp(sensitivity_, "default") == 0) {  //default = 8
+      pinMode(14, OUTPUT);     //D5 GND
+      digitalWrite(14, LOW);   //D5 GND
+      pinMode(16, INPUT);      //D0 OPEN
     }
   }
 
@@ -59,7 +98,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom TEST VERSION 2.2.0:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   switch (hw_version_) {
@@ -76,20 +115,51 @@ void ComelitComponent::dump_config() {
   if (strcmp(sensitivity_, "default") == 0) {
     switch (hw_version_) {
       case HW_VERSION_TYPE_2_5:
-        ESP_LOGCONFIG(TAG, "  Sensitivity: default (high)");
+        ESP_LOGCONFIG(TAG, "  Sensitivity: default (high) 107mV");
         break;
       case HW_VERSION_TYPE_2_6:
-        ESP_LOGCONFIG(TAG, "  Sensitivity: default (3)");
+        ESP_LOGCONFIG(TAG, "  Sensitivity: default (8) 108mV");
         break;
       case HW_VERSION_TYPE_OLDER: break;
     }
   } else {
-    ESP_LOGCONFIG(TAG, "  Sensitivity: %s", sensitivity_);
+    if (hw_version_ == HW_VERSION_TYPE_2_5) {
+      if (strcmp(sensitivity_, "high") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: high  -  107mV");
+      } else if (strcmp(sensitivity_, "low") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: low  -  205mV");
+      }
+    } else if (hw_version_ == HW_VERSION_TYPE_2_6) {
+      if (strcmp(sensitivity_, "1") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 1  -  2025mV");
+      } else if (strcmp(sensitivity_, "2") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 2  -  1695mV");
+      } else if (strcmp(sensitivity_, "3") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 3  -  1377mV");
+      } else if (strcmp(sensitivity_, "4") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 4  -  1184mV");
+      } else if (strcmp(sensitivity_, "5") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 5  -  736mV");
+      } else if (strcmp(sensitivity_, "6") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 6  -  200mV");
+      } else if (strcmp(sensitivity_, "7") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 7  -  141mV");
+      } else if (strcmp(sensitivity_, "8") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 8  -  108mV");
+      } else if (strcmp(sensitivity_, "9") == 0) {
+        ESP_LOGCONFIG(TAG, "  Sensitivity: 9  -  88mV");
+      }
+    }
   }
   ESP_LOGCONFIG(TAG, "  Filter: %ius", filter_us_);
   ESP_LOGCONFIG(TAG, "  Idle:   %ius", idle_us_);
   ESP_LOGCONFIG(TAG, "  Buffer: %ib", buffer_size_);
   if (dump_raw_) ESP_LOGCONFIG(TAG, "  Dump raw value: True");
+  if (simplebus_1_) {
+    ESP_LOGCONFIG(TAG, "  Simplebus tx protocol: 1");
+  } else {
+    ESP_LOGCONFIG(TAG, "  Simplebus tx protocol: 2");
+  }
   if (strcmp(event_, "esphome.none") != 0) {
     ESP_LOGCONFIG(TAG, "  Event: %s", event_);
   } else {
@@ -105,7 +175,11 @@ void ComelitComponent::loop() {
     }
   }
   if (this->sending){
-    sending_loop();
+    if (this->simplebus_1_){
+      sending_loop_simplebus_1();
+    } else {
+      sending_loop_simplebus_2();
+    }
     return;
   }
 
@@ -146,7 +220,11 @@ void ComelitComponent::loop() {
     ESP_LOGD(TAG, "Received Raw with size %i", temp_.size());
     this->dump(temp_);
   }
-  if (this->temp_.size() == 38) {
+  if (this->temp_.size() == 76 && this->simplebus_1_ == false) {
+    ESP_LOGD(TAG, "Warning! received simplebus 1 command but your transmission section is set to simplebus 2.");
+    ESP_LOGD(TAG, "Maybe you need to set        simplebus_1: true");
+  }
+  if ((this->temp_.size() == 38) || (this->temp_.size() == 76)) {
     comelit_decode(temp_);
   }
 }
@@ -158,17 +236,32 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
   auto capi = new esphome::api::CustomAPIDevice();
   char message[18];
   int bits = 0;
-  for (uint16_t i = 1; i < src.size() - 1; i = i + 2) {
-    const uint16_t value = src[i];
-      if (value < 2500 && value > 1000) {
-        message[bits] = 0;
-        bits += 1;
-      }
-      else if (value < 6200 && value > 3500) {
-        message[bits] = 1;
-        bits += 1;
-      }
+  if (src.size() == 38) {
+    for (uint16_t i = 1; i < src.size() - 1; i = i + 2) {
+      const uint16_t value = src[i];
+        if (value < 2500 && value > 1000) {
+          message[bits] = 0;
+          bits += 1;
+        }
+        else if (value < 6200 && value > 3500) {
+          message[bits] = 1;
+          bits += 1;
+        }
+    }
+  } else if (src.size() == 76) {
+    for (uint16_t i = 3; i < src.size() - 1; i = i + 4) {
+      const uint16_t value = src[i];
+        if (value < 2500 && value > 1000) {
+          message[bits] = 0;
+          bits += 1;
+        }
+        else if (value < 6200 && value > 3500) {
+          message[bits] = 1;
+          bits += 1;
+        }
+    }
   }
+
   if (bits == 18) {
     int sum = 0;
     int checksum = 0;
@@ -185,7 +278,7 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
       }
       this->command = (msgAddr[5] * 32) + (msgAddr[4] * 16) + (msgAddr[3] * 8) + (msgAddr[2] * 4) + (msgAddr[1] * 2) + msgAddr[0];
       this->address = (msgCode[7] * 128) + (msgCode[6] * 64) + (msgCode[5] * 32) + (msgCode[4] * 16) + (msgCode[3] * 8) + (msgCode[2] * 4) + (msgCode[1] * 2) + msgCode[0];
-      if (this->command != 63 && this->address != 255){
+      if (this->command != 63){
         ESP_LOGD(TAG, "Received command %i, address %i", this->command, this->address);
         
         if (strcmp(event_, "esphome.none") != 0) {
@@ -285,9 +378,13 @@ void ComelitComponent::register_listener(ComelitIntercomListener *listener) {
 void ComelitComponent::send_command(ComelitIntercomData data) {
   if (this->sending){
     ESP_LOGD(TAG, "Sending of command %i address %i cancelled, another sending is in progress", data.command, data.address);
-    //return;
+    return;
   }
-  ESP_LOGD(TAG, "Sending command %i, address %i", data.command, data.address);
+  if (this->simplebus_1_){
+    ESP_LOGD(TAG, "Simplebus 1: Sending command %i, address %i", data.command, data.address);
+  } else {
+    ESP_LOGD(TAG, "Simplebus 2: Sending command %i, address %i", data.command, data.address);
+  }
   this->rx_pin_->detach_interrupt();
   int checksum_counter = 0;
 
@@ -326,7 +423,7 @@ void ComelitComponent::send_command(ComelitIntercomData data) {
   this->preamble = true;
 }
 
-void ComelitComponent::sending_loop() {
+void ComelitComponent::sending_loop_simplebus_2() {
   uint32_t now = micros();
   if (this->preamble) {
     if (this->send_next_bit == 0 && this->send_next_change == 0) {  // initializing
@@ -369,6 +466,54 @@ void ComelitComponent::sending_loop() {
         if (now < this->send_next_bit) return;
         this->send_next_bit = now + 3000;
         this->send_next_change = now + 20;
+        this->send_index++;
+      }
+    } else {                                      // end of transmission
+      this->sending = false;
+      this->tx_pin_->digital_write(false);
+      this->send_next_bit = 0;
+      this->send_next_change = 0;
+      this->send_index = 0;
+      this->rx_pin_->attach_interrupt(ComelitComponentStore::gpio_intr, &this->store_, gpio::INTERRUPT_ANY_EDGE);
+    }
+  }
+}
+
+void ComelitComponent::sending_loop_simplebus_1() {
+  uint32_t now = micros();
+  if (this->preamble) {
+    if (this->send_next_bit == 0 && this->send_next_change == 0) {  // initializing
+      this->tx_pin_->digital_write(true);
+      this->send_next_bit = now + 3000;
+      while (this->send_next_bit >= micros()) {
+      }
+      this->send_next_bit = 0;
+      this->send_next_change = now + 16000;
+      this->tx_pin_->digital_write(false);
+      return;
+    } else {                                     // long pause of initializing
+      if (now < this->send_next_change) return;
+      this->send_next_bit = now + 3000;
+      this->send_next_change = now + 3020;
+      this->preamble = false;
+    }
+  } else {                                       // bit sending routine, preamble ended
+    if (this->send_index < 19) {
+      if (this->send_next_change > 0) {           // carrier generation
+        this->tx_pin_->digital_write(true);
+        while (this->send_next_bit >= micros()) {
+        }
+        this->send_next_change = 0;
+        this->tx_pin_->digital_write(false);
+        if (this->send_buffer[this->send_index]) {
+          this->send_next_bit = this->send_next_bit + 6000;
+        } else {
+          this->send_next_bit = this->send_next_bit + 3000;
+        }
+      } else {                                    // no signal generation
+        if (now < this->send_next_bit) return;
+        this->send_next_bit = now + 3000;
+        this->send_next_change = now + 3020;
         this->send_index++;
       }
     } else {                                      // end of transmission

@@ -52,19 +52,45 @@ If you are interested, please contact me at mansellrace@gmail.com
 ## [External component docs](components/README.md)
 
 ## First set-up
-Prerequisite: Home assistant and esphome add-on installed
-- Connect the wemos to the pc and add it to your esphome configuration.  Add the following lines to the configuration file at the bottom and then reinstall the firmware:
+Prerequisite: Home Assistant and "ESPHome Device Compiler" add-on installed
+- Connect the pcb to the bus. A wifi network called comelit-default will appear. Connect and open the browser, a page will pop up that allows you to set up your wifi network. If it does not open go [here](http://192.168.4.1)
+- After configuring wifi go [here](http://comelit-default.local/). There you will find a log where you can view the commands received from the bus and you will find a button that launches command 16 with address 1, in most cases it will already be able to open the main gate.
+Try pressing a button on your intercom, on the log you will get what command and what address it generated. Make a note of the address, you will need it later.
+- Open your ESPHome Device Compiler page. Create a new device, press skip, select esp8266, press skip, press edit on the newly created device.
+Add the following lines to the configuration file at the bottom:
 
       external_components:
         - source: github://mansellrace/comelit-esphome
   
       comelit_intercom:
   
-- Connect the pcb to the bus and observe the esphome log. You should see the commands coming through the bus. Try commanding the outside door to open, you will find out what the address of your intercom is.
 - There are two ways to receive commands, by event or by binary sensor.
-  - For the standard configuration, a home assistant event is generated for each command received. You can intercept this event to trigger an automation.  [More information here](components/README.md#event)
-  - You can create a binary sensor that goes to on whenever a particular combination of command and address is received. [More information here](components/README.md#binary-sensor)
+  - For the standard configuration, a home assistant event is generated for each command received. If you want to use events you don't have to add anything now. You can intercept this event directly on home assistant to trigger an automation.  [More information here](components/README.md#event)
+  - You can create a binary sensor that goes to "on" whenever a particular combination of command and address is received. The address is what you discovered in the previous step [More information here](components/README.md#binary-sensor)
+
+      Example of binary sensor config:
+
+        binary_sensor:
+          - platform: comelit_intercom
+            address: 10  <- Insert your address here
+
 - Transmission of commands can be via home assistant service or via button entity. [More information here](components/README.md#transmit-a-command)
+
+  Example of a button that opens the main door.
+
+      button:
+        - platform: template
+          name: Open Door
+          on_press:
+            - comelit_intercom.send:
+                command: 16
+                address: 1
+
+- Press “Install,” then “Manual Download.” A .bin file will be generated; the process may take a few minutes.
+- Go [here](http://comelit-default.local/) and upload the bin file as an ota update.
+- Home Assistant will find the new device you created automatically.
+If you need to change anything in the code, you can now install the new firmware directly from ESPHome Device Compiler by pressing install -> Wirelessly
+- Have fun!
 
 ## Commands description
 

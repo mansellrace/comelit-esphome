@@ -18,6 +18,7 @@ CONF_SENSITIVITY = "sensitivity"
 CONF_HW_VERSION = "hw_version"
 CONF_RX_PIN = "rx_pin"
 CONF_TX_PIN = "tx_pin"
+CONF_TX2_PIN = "tx2_pin"
 CONF_LOGBOOK_LANGUAGE = "logbook_language"
 CONF_LOGBOOK_ENTITY = "logbook_entity"
 CONF_DUMP = "dump"
@@ -67,6 +68,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_SENSITIVITY, default="default"): cv.string,
             cv.Optional(CONF_RX_PIN, default=12): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_TX_PIN, default=5): pins.internal_gpio_output_pin_schema,
+            cv.Optional(CONF_TX2_PIN, default=5): pins.internal_gpio_output_pin_schema,
             cv.Optional(CONF_LOGBOOK_LANGUAGE, default="disabled"): cv.enum(LANGUAGE_TYPES),
             cv.Optional(CONF_LOGBOOK_ENTITY, default="none"): cv.string,
             cv.Optional(CONF_FILTER, default="1000us"): cv.All(
@@ -97,6 +99,9 @@ async def to_code(config):
 
     pin = await cg.gpio_pin_expression(config[CONF_TX_PIN])
     cg.add(var.set_tx_pin(pin))
+
+    pin = await cg.gpio_pin_expression(config[CONF_TX2_PIN])
+    cg.add(var.set_tx2_pin(pin))
 
     cg.add(var.set_logbook_language(config[CONF_LOGBOOK_LANGUAGE]))
     cg.add(var.set_logbook_entity(config[CONF_LOGBOOK_ENTITY]))

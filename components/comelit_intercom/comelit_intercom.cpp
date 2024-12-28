@@ -101,6 +101,7 @@ void ComelitComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2024-08-21:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
+  LOG_PIN("  Pin TX2: ", this->tx2_pin_);
   switch (hw_version_) {
     case HW_VERSION_TYPE_2_5:
       ESP_LOGCONFIG(TAG, "  HW version: 2.5");

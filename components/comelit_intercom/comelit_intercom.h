@@ -72,6 +72,7 @@ class ComelitComponent : public Component {
 
   void set_rx_pin(InternalGPIOPin *pin) { rx_pin_ = pin; }
   void set_tx_pin(InternalGPIOPin *pin) { tx_pin_ = pin; }
+  void set_tx2_pin(InternalGPIOPin *pin) { tx2_pin_ = pin; }
   void set_hw_version(HardwareType hw_version) { hw_version_ = hw_version; }
   void set_logbook_language(LanguageType logbook_language) { logbook_language_ = logbook_language; }
   void set_logbook_entity(const char *logbook_entity) { logbook_entity_ = logbook_entity; }
@@ -98,6 +99,7 @@ class ComelitComponent : public Component {
  protected:
   InternalGPIOPin *rx_pin_;
   InternalGPIOPin *tx_pin_;
+  InternalGPIOPin *tx2_pin_;
   HardwareType hw_version_;
   LanguageType logbook_language_;
   const char* logbook_entity_;

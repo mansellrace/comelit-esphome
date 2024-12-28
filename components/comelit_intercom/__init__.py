@@ -103,6 +103,7 @@ async def to_code(config):
     if CONF_TX2_PIN in config:
         pin = await cg.gpio_pin_expression(config[CONF_TX2_PIN])
         cg.add(var.set_tx2_pin(pin))
+        cg.add(var.set_tx2_enabled(True))
 
     cg.add(var.set_logbook_language(config[CONF_LOGBOOK_LANGUAGE]))
     cg.add(var.set_logbook_entity(config[CONF_LOGBOOK_ENTITY]))

@@ -98,11 +98,13 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2024-08-21:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2024-12-28:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   if (this->tx_2_enabled_) {
     LOG_PIN("  Pin TX2: ", this->tx2_pin_);
+  } else {
+    ESP_LOGCONFIG(TAG, "  Pin TX2: disabled");
   }
   
   switch (hw_version_) {

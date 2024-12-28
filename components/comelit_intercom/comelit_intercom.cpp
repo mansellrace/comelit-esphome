@@ -73,6 +73,11 @@ void ComelitComponent::setup() {
   this->tx_pin_->setup();
   this->tx_pin_->digital_write(false);
 
+  if (this->tx2_enabled_) {
+    this->tx2_pin_->setup();
+    this->tx2_pin_->digital_write(false);
+  }
+
   auto &s = this->store_;
   s.filter_us = this->filter_us_;
   s.buffer_size = this->buffer_size_;
@@ -98,9 +103,15 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2024-08-21:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2024-12-28:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
+  if (this->tx2_enabled_) {
+    LOG_PIN("  Pin TX2: ", this->tx2_pin_);
+  } else {
+    ESP_LOGCONFIG(TAG, "  Pin TX2: disabled");
+  }
+  
   switch (hw_version_) {
     case HW_VERSION_TYPE_2_5:
       ESP_LOGCONFIG(TAG, "  HW version: 2.5");
@@ -428,17 +439,26 @@ void ComelitComponent::sending_loop_simplebus_2() {
   if (this->preamble) {
     if (this->send_next_bit == 0 && this->send_next_change == 0) {  // initializing
       this->tx_pin_->digital_write(true);
+      if (this->tx2_enabled_) {
+        this->tx2_pin_->digital_write(true);
+      }
       this->send_next_bit = now + 3000;
       this->send_next_change = now + 20;
       while (this->send_next_bit >= micros()) {
         if (this->send_next_change < micros()) {
           this->tx_pin_->digital_write(!this->tx_pin_->digital_read());
+          if (this->tx2_enabled_) {
+            this->tx2_pin_->digital_write(!this->tx2_pin_->digital_read());
+          }
           this->send_next_change = this->send_next_change + 20;
         }
       }
       this->send_next_bit = 0;
       this->send_next_change = this->send_next_change + 16000;
       this->tx_pin_->digital_write(false);
+      if (this->tx2_enabled_) {
+        this->tx2_pin_->digital_write(false);
+      }
       return;
     } else {                                     // long pause of initializing
       if (now < this->send_next_change) return;
@@ -452,11 +472,17 @@ void ComelitComponent::sending_loop_simplebus_2() {
         while (this->send_next_bit >= micros()) {
           if (this->send_next_change < micros()) {
             this->tx_pin_->digital_write(!this->tx_pin_->digital_read());
+            if (this->tx2_enabled_) {
+              this->tx2_pin_->digital_write(!this->tx2_pin_->digital_read());
+            }
             this->send_next_change = this->send_next_change + 20;
           }
         }
         this->send_next_change = 0;
         this->tx_pin_->digital_write(false);
+        if (this->tx2_enabled_) {
+          this->tx2_pin_->digital_write(false);
+        }
         if (this->send_buffer[this->send_index]) {
           this->send_next_bit = this->send_next_bit + 6000;
         } else {
@@ -471,6 +497,9 @@ void ComelitComponent::sending_loop_simplebus_2() {
     } else {                                      // end of transmission
       this->sending = false;
       this->tx_pin_->digital_write(false);
+      if (this->tx2_enabled_) {
+        this->tx2_pin_->digital_write(false);
+      }
       this->send_next_bit = 0;
       this->send_next_change = 0;
       this->send_index = 0;
@@ -484,12 +513,18 @@ void ComelitComponent::sending_loop_simplebus_1() {
   if (this->preamble) {
     if (this->send_next_bit == 0 && this->send_next_change == 0) {  // initializing
       this->tx_pin_->digital_write(true);
+      if (this->tx2_enabled_) {
+        this->tx2_pin_->digital_write(true);
+      }
       this->send_next_bit = now + 3000;
       while (this->send_next_bit >= micros()) {
       }
       this->send_next_bit = 0;
       this->send_next_change = now + 16000;
       this->tx_pin_->digital_write(false);
+      if (this->tx2_enabled_) {
+        this->tx2_pin_->digital_write(false);
+      }
       return;
     } else {                                     // long pause of initializing
       if (now < this->send_next_change) return;
@@ -501,10 +536,16 @@ void ComelitComponent::sending_loop_simplebus_1() {
     if (this->send_index < 19) {
       if (this->send_next_change > 0) {           // carrier generation
         this->tx_pin_->digital_write(true);
+        if (this->tx2_enabled_) {
+          this->tx2_pin_->digital_write(true);
+        }
         while (this->send_next_bit >= micros()) {
         }
         this->send_next_change = 0;
         this->tx_pin_->digital_write(false);
+        if (this->tx2_enabled_) {
+          this->tx2_pin_->digital_write(false);
+        }
         if (this->send_buffer[this->send_index]) {
           this->send_next_bit = this->send_next_bit + 6000;
         } else {
@@ -519,6 +560,9 @@ void ComelitComponent::sending_loop_simplebus_1() {
     } else {                                      // end of transmission
       this->sending = false;
       this->tx_pin_->digital_write(false);
+      if (this->tx2_enabled_) {
+        this->tx2_pin_->digital_write(false);
+      }
       this->send_next_bit = 0;
       this->send_next_change = 0;
       this->send_index = 0;

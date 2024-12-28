@@ -101,7 +101,7 @@ class ComelitComponent : public Component {
   InternalGPIOPin *rx_pin_;
   InternalGPIOPin *tx_pin_;
   InternalGPIOPin *tx2_pin_;
-  bool tx_2_enabled_ = false; 
+  bool tx2_enabled_ = false; 
   HardwareType hw_version_;
   LanguageType logbook_language_;
   const char* logbook_entity_;

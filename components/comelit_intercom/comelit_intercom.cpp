@@ -416,7 +416,7 @@ void ComelitComponent::send_command(ComelitIntercomData data) {
   }
   this->rx_pin_->detach_interrupt();
   int checksum_counter = 0;
-  if (this->capacitor) {
+  if (capacitor) {
     digitalWrite(13, LOW);
     time_cap = millis() + 3000;
   }

@@ -15,6 +15,7 @@ namespace comelit_intercom {
 enum HardwareType {
     HW_VERSION_TYPE_2_5,
     HW_VERSION_TYPE_2_6,
+    HW_VERSION_TYPE_2_7,
     HW_VERSION_TYPE_OLDER,
 };
 
@@ -113,6 +114,8 @@ class ComelitComponent : public Component {
   uint16_t filter_us_{10};
   uint32_t idle_us_{10000};
   uint32_t buffer_size_{};
+  uint32_t time_cap{0};
+  bool capacitor{false};
 
   HighFrequencyLoopRequester high_freq_;
   std::vector<uint16_t> temp_;

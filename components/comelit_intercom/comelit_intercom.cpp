@@ -22,7 +22,7 @@ void ComelitComponent::setup() {
       pinMode(14, OUTPUT);     //D5 GND
       digitalWrite(14, LOW);   //D5 GND
     }
-  } else if (hw_version_ == HW_VERSION_TYPE_2_6) {
+  } else if (hw_version_ == HW_VERSION_TYPE_2_6 || hw_version_ == HW_VERSION_TYPE_2_7) {
     if (strcmp(sensitivity_, "1") == 0) {
       pinMode(14, OUTPUT);     //D5 3.3V
       digitalWrite(14, HIGH);  //D5 3.3V
@@ -69,6 +69,13 @@ void ComelitComponent::setup() {
     }
   }
 
+  if (hw_version_ == HW_VERSION_TYPE_2_7) {
+    pinMode(13, OUTPUT);        //D2 OPEN
+    digitalWrite(13, LOW);  //D2 GND
+    capacitor = true;
+    time_cap = millis() + 8000;
+  }
+
   this->rx_pin_->setup();
   this->tx_pin_->setup();
   this->tx_pin_->digital_write(false);
@@ -103,7 +110,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2024-12-28:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2025-04-26:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   if (this->tx2_enabled_) {
@@ -119,6 +126,9 @@ void ComelitComponent::dump_config() {
     case HW_VERSION_TYPE_2_6:
       ESP_LOGCONFIG(TAG, "  HW version: 2.6");
       break;
+    case HW_VERSION_TYPE_2_7:
+      ESP_LOGCONFIG(TAG, "  HW version: 2.7");
+      break;
     case HW_VERSION_TYPE_OLDER:
       ESP_LOGCONFIG(TAG, "  HW version: older");
       break;
@@ -131,6 +141,9 @@ void ComelitComponent::dump_config() {
       case HW_VERSION_TYPE_2_6:
         ESP_LOGCONFIG(TAG, "  Sensitivity: default (8) 108mV");
         break;
+      case HW_VERSION_TYPE_2_7:
+        ESP_LOGCONFIG(TAG, "  Sensitivity: default (8) 108mV");
+        break;
       case HW_VERSION_TYPE_OLDER: break;
     }
   } else {
@@ -140,7 +153,7 @@ void ComelitComponent::dump_config() {
       } else if (strcmp(sensitivity_, "low") == 0) {
         ESP_LOGCONFIG(TAG, "  Sensitivity: low  -  205mV");
       }
-    } else if (hw_version_ == HW_VERSION_TYPE_2_6) {
+    } else if (hw_version_ == HW_VERSION_TYPE_2_6 || hw_version_ == HW_VERSION_TYPE_2_7) {
       if (strcmp(sensitivity_, "1") == 0) {
         ESP_LOGCONFIG(TAG, "  Sensitivity: 1  -  2025mV");
       } else if (strcmp(sensitivity_, "2") == 0) {
@@ -180,6 +193,11 @@ void ComelitComponent::dump_config() {
 
 void ComelitComponent::loop() {
   uint32_t now_millis = millis();
+  if (capacitor) {
+    if (now_millis > time_cap) {
+      digitalWrite(13, HIGH);
+    }
+  }
   for (auto &listener : listeners_) { 
     if (listener->timer_ && now_millis > listener->timer_) {
       listener->turn_off(&listener->timer_);
@@ -398,6 +416,10 @@ void ComelitComponent::send_command(ComelitIntercomData data) {
   }
   this->rx_pin_->detach_interrupt();
   int checksum_counter = 0;
+  if (this->capacitor) {
+    digitalWrite(13, LOW);
+    time_cap = millis() + 3000;
+  }
 
   for (int i=0; i<6; i++){
     if (bitRead(data.command, i)) {

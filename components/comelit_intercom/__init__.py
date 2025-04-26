@@ -32,12 +32,14 @@ HardwareType = comelit_intercom_ns.enum("Hw_Version")
 HW_TYPES = {
     "2.5": HardwareType.HW_VERSION_TYPE_2_5,
     "2.6": HardwareType.HW_VERSION_TYPE_2_6,
+    "2.7": HardwareType.HW_VERSION_TYPE_2_7,
     "older": HardwareType.HW_VERSION_TYPE_OLDER,
 }
 
 SENSITIVITY_TYPES = {
     "2.5" : ["low", "high"],
     "2.6" : ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+    "2.7" : ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
 }
 
 LanguageType = comelit_intercom_ns.enum("Language")

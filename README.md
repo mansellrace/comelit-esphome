@@ -105,3 +105,4 @@ An explanation of the commands that can be found on the bus can be found [here](
 - **2024, January**: Hw version 2.5, added ability to adjust reception sensitivity to two levels
 - **2024, February**: Release of the new software. Now the project is based on an external component of esphome and configuration is much easier.
 - **2024, August**: Hw version 2.6, added compatibility with simplebus 1 and simplebus 1 color. There is also a hardware revision dedicated to intercom kit systems with 2 wires for bus wires and 2 wires for power.
+- **2025, April**: Hw version 2.7 specific for Simplebus 1

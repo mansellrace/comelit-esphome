@@ -15,6 +15,7 @@ namespace comelit_intercom {
 enum HardwareType {
     HW_VERSION_TYPE_2_5,
     HW_VERSION_TYPE_2_6,
+    HW_VERSION_TYPE_2_7,
     HW_VERSION_TYPE_OLDER,
 };
 

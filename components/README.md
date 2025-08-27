@@ -1,6 +1,16 @@
 Comelit Intercom component
 ===================
 
+> [!IMPORTANT]
+> ### **Please note**:
+>
+> for new features introduced in version 2025.08, you need to add the line "homeassistant_services: true"
+>
+> inside the api configuration, like this
+>
+>      api:
+>        homeassistant_services: true
+
 The ``comelit_intercom`` allows you to easily interface the esphome-comelit project on esphome and home assistant
 
 Basic esphome configuration entry:

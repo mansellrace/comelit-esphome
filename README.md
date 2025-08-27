@@ -5,6 +5,17 @@ It works with simplebus 1, simplebus 1 color, simplebus 2.
 
 ![render](/images/render_fronte.png) ![render2](/images/render_retro.png)
 
+> [!IMPORTANT]
+> ### **Please note**:
+>
+> for new features introduced in version 2025.08, you need to add the line "homeassistant_services: true"
+>
+> inside the api configuration, like this
+>
+>      api:
+>        homeassistant_services: true
+  
+
 **Big news:**  The hardware design has evolved, and has reached hw revision 2.6. The main changes are in the power supply section, now using a wide-range switching IC directly soldered to the pcb. Now compatible with simplebus 1 and simplebus 1 color. There is also a hardware revision dedicated to intercom kit systems with 2 wires for bus wires and 2 wires for power. More details in the [updates section](#updates)
 
 **Big big news**: Now the project is much easier to set up, the software is based on an external component

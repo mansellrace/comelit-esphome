@@ -74,7 +74,11 @@ Add the following lines to the configuration file at the bottom:
         - source: github://mansellrace/comelit-esphome
   
       comelit_intercom:
-  
+- Add the line "homeassistant_services: true" inside the api configuration, like this
+
+      api:
+        homeassistant_services: true
+
 - There are two ways to receive commands, by event or by binary sensor.
   - For the standard configuration, a home assistant event is generated for each command received. If you want to use events you don't have to add anything now. You can intercept this event directly on home assistant to trigger an automation.  [More information here](components/README.md#event)
   - You can create a binary sensor that goes to "on" whenever a particular combination of command and address is received. The address is what you discovered in the previous step [More information here](components/README.md#binary-sensor)

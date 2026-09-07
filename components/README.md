@@ -103,7 +103,6 @@ Configuration examples:
 
 	text_sensor:
 	  - platform: comelit_intercom
-	  - platform: comelit_intercom
 	    name: Doors
 	    commands: [16, 29]
 	    addresses: [1, 10]

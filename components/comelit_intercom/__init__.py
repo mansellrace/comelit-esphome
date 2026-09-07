@@ -1,3 +1,5 @@
+import inspect
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import pins, automation
@@ -114,8 +116,23 @@ COMELIT_INTERCOM_SEND_SCHEMA = cv.Schema(
 )
 
 
+# ESPHome >= 2026 wants actions to declare whether they defer play_next_().
+# ComelitIntercomSendAction only overrides play(), which returns as soon as the frame is
+# queued (loop() does the actual transmission), so play_next_() always runs before
+# play_complex() returns -> synchronous=True. Passed conditionally so the component keeps
+# working on older ESPHome releases where register_action() has no such parameter.
+_SEND_ACTION_KWARGS = (
+    {"synchronous": True}
+    if "synchronous" in inspect.signature(automation.register_action).parameters
+    else {}
+)
+
+
 @automation.register_action(
-    "comelit_intercom.send", ComelitIntercomSendAction, COMELIT_INTERCOM_SEND_SCHEMA
+    "comelit_intercom.send",
+    ComelitIntercomSendAction,
+    COMELIT_INTERCOM_SEND_SCHEMA,
+    **_SEND_ACTION_KWARGS,
 )
 async def comelit_intercom_send_to_code(config, action_id, template_args, args):
     paren = await cg.get_variable(config[CONF_ID])

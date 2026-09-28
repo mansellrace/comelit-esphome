@@ -82,8 +82,9 @@ struct ComelitComponentStore {
 
 class ComelitComponent : public Component {
  public:
-  void comelit_decode(std::vector<uint16_t> src);
-  void dump(std::vector<uint16_t>) const;
+  void comelit_decode(std::vector<uint32_t> src);
+  void dump(std::vector<uint32_t>) const;
+  bool is_ack(std::vector<uint32_t> src) const;
   void sending_loop_simplebus_2();
   void sending_loop_simplebus_1();
 
@@ -130,7 +131,7 @@ class ComelitComponent : public Component {
   bool capacitor{false};
 
   HighFrequencyLoopRequester high_freq_;
-  std::vector<uint16_t> temp_;
+  std::vector<uint32_t> temp_;
   std::vector<ComelitIntercomListener *> listeners_{};
 };
 

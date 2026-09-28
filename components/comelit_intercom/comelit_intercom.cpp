@@ -110,7 +110,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-08-22:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-09-28:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   if (this->tx2_enabled_) {
@@ -225,7 +225,11 @@ void ComelitComponent::loop() {
   }
 
   // Skip first value, it's from the previous idle level
+  const uint32_t last_edge = s.buffer[s.buffer_read_at];
   s.buffer_read_at = (s.buffer_read_at + 1) % s.buffer_size;
+  const uint32_t skipped_us = s.buffer[s.buffer_read_at] - last_edge;
+  // rx pin is high during carrier and the isr stores the inverted level: odd index = end of carrier
+  const bool skipped_mark = (s.buffer_read_at % 2) == 1;
   uint32_t prev = s.buffer_read_at;
   s.buffer_read_at = (s.buffer_read_at + 1) % s.buffer_size;
   const uint32_t reserve_size = 1 + (s.buffer_size + write_at - s.buffer_read_at) % s.buffer_size;
@@ -245,9 +249,11 @@ void ComelitComponent::loop() {
   s.buffer_read_at = (s.buffer_size + s.buffer_read_at - 1) % s.buffer_size;
   this->temp_.push_back(this->idle_us_);
 
-  if (this->temp_.size() > 1 && this->dump_raw_) {
-    ESP_LOGD(TAG, "Received Raw with size %i", temp_.size());
-    this->dump(temp_);
+  if (this->dump_raw_) {
+    ESP_LOGD(TAG, "Received Raw with size %i, preceded by %s of %" PRIu32 " us", temp_.size(),
+             skipped_mark ? "MARK" : "space", skipped_us);
+    if (this->temp_.size() > 1) this->dump(temp_);
+    if (is_ack(temp_)) ESP_LOGD(TAG, "Received ACK");
   }
   if (this->temp_.size() == 76 && this->simplebus_1_ == false) {
     ESP_LOGD(TAG, "Warning! received simplebus 1 command but your transmission section is set to simplebus 2.");
@@ -258,12 +264,12 @@ void ComelitComponent::loop() {
   }
 }
 
-void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
+void ComelitComponent::comelit_decode(std::vector<uint32_t> src) {
   char message[18];
   int bits = 0;
   if (src.size() == 38) {
     for (uint16_t i = 1; i < src.size() - 1; i = i + 2) {
-      const uint16_t value = src[i];
+      const uint32_t value = src[i];
         if (value < 3200 && value > 1000) {
           message[bits] = 0;
           bits += 1;
@@ -275,7 +281,7 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
     }
   } else if (src.size() == 76) {
     for (uint16_t i = 3; i < src.size() - 1; i = i + 4) {
-      const uint16_t value = src[i];
+      const uint32_t value = src[i];
         if (value < 2500 && value > 1000) {
           message[bits] = 0;
           bits += 1;
@@ -323,6 +329,21 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
   }
 }
 
+bool ComelitComponent::is_ack(std::vector<uint32_t> src) const {
+  // acknowledge: 4 bursts separated by 3ms spaces, followed by idle or by a long pause
+  if (src.size() < 8) return false;
+  if (src.size() > 8 && src[7] < 6200) return false;
+  for (uint16_t i = 0; i < 7; i++) {
+    const uint32_t value = src[i];
+    if (i % 2 == 0) {
+      if (!(value < 6200 && value > 3500)) return false;
+    } else {
+      if (!(value < 3200 && value > 1000)) return false;
+    }
+  }
+  return true;
+}
+
 void IRAM_ATTR HOT ComelitComponentStore::gpio_intr(ComelitComponentStore *arg) {
   const uint32_t now = micros();
   // If the lhs is 1 (rising edge) we should write to an uneven index and vice versa
@@ -343,12 +364,12 @@ void IRAM_ATTR HOT ComelitComponentStore::gpio_intr(ComelitComponentStore *arg) 
   arg->buffer[arg->buffer_write_at = next] = now;
 }
 
-void ComelitComponent::dump(std::vector<uint16_t> src) const {
+void ComelitComponent::dump(std::vector<uint32_t> src) const {
   char buffer[128];
   uint32_t buffer_offset = 0;
   buffer_offset += sprintf(buffer, "Raw: ");
   for (uint16_t i = 0; i < src.size() - 1; i++) {
-    const uint16_t value = src[i];
+    const uint32_t value = src[i];
     const uint32_t remaining_length = sizeof(buffer) - buffer_offset;
     int written;
 

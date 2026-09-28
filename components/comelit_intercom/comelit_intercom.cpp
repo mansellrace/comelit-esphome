@@ -184,6 +184,7 @@ void ComelitComponent::dump_config() {
   } else {
     ESP_LOGCONFIG(TAG, "  Simplebus tx protocol: 2");
   }
+  ESP_LOGCONFIG(TAG, "  Send attempts: %i", send_attempts_);
   if (strcmp(event_, "esphome.none") != 0) {
     ESP_LOGCONFIG(TAG, "  Event: %s", event_);
   } else {
@@ -209,12 +210,36 @@ void ComelitComponent::loop() {
     } else {
       sending_loop_simplebus_2();
     }
+    if (!this->sending && this->send_attempts_ > 1) {
+      // frame sent: wait for the acknowledge, like the intercom does, before sending it again
+      this->waiting_ack_ = true;
+      this->retry_at_ = millis() + 730;
+    }
     return;
   }
 
   auto &s = this->store_;
   const uint32_t write_at = s.buffer_write_at;
   const uint32_t dist = (s.buffer_size + write_at - s.buffer_read_at) % s.buffer_size;
+  // no ACK in time: send again, but not while a received frame is still waiting to be decoded
+  if (this->waiting_ack_ && dist <= 1 && (int32_t) (now_millis - this->retry_at_) >= 0) {
+    this->waiting_ack_ = false;
+    if (this->attempt_ < this->send_attempts_) {
+      this->attempt_++;
+      ESP_LOGD(TAG, "No ACK, sending command %i address %i again (attempt %i of %i)", this->send_data_.command,
+               this->send_data_.address, this->attempt_, this->send_attempts_);
+      this->rx_pin_->detach_interrupt();
+      if (capacitor) {
+        digitalWrite(13, LOW);
+        time_cap = millis() + 3000;
+      }
+      this->sending = true;
+      this->preamble = true;
+      return;
+    }
+    ESP_LOGD(TAG, "No ACK for command %i address %i after %i attempts", this->send_data_.command,
+             this->send_data_.address, this->attempt_);
+  }
   // signals must at least one rising and one leading edge
   if (dist <= 1)
     return;
@@ -249,11 +274,17 @@ void ComelitComponent::loop() {
   s.buffer_read_at = (s.buffer_size + s.buffer_read_at - 1) % s.buffer_size;
   this->temp_.push_back(this->idle_us_);
 
+  const bool ack = (this->dump_raw_ || this->waiting_ack_) && is_ack(temp_);
   if (this->dump_raw_) {
     ESP_LOGD(TAG, "Received Raw with size %i, preceded by %s of %" PRIu32 " us", temp_.size(),
              skipped_mark ? "MARK" : "space", skipped_us);
     if (this->temp_.size() > 1) this->dump(temp_);
-    if (is_ack(temp_)) ESP_LOGD(TAG, "Received ACK");
+    if (ack) ESP_LOGD(TAG, "Received ACK");
+  }
+  if (ack && this->waiting_ack_) {
+    ESP_LOGD(TAG, "ACK received for command %i address %i at attempt %i", this->send_data_.command,
+             this->send_data_.address, this->attempt_);
+    this->waiting_ack_ = false;
   }
   if (this->temp_.size() == 76 && this->simplebus_1_ == false) {
     ESP_LOGD(TAG, "Warning! received simplebus 1 command but your transmission section is set to simplebus 2.");
@@ -406,7 +437,7 @@ void ComelitComponent::register_listener(ComelitIntercomListener *listener) {
 
 
 void ComelitComponent::send_command(ComelitIntercomData data) {
-  if (this->sending){
+  if (this->sending || this->waiting_ack_){
     ESP_LOGD(TAG, "Sending of command %i address %i cancelled, another sending is in progress", data.command, data.address);
     return;
   }
@@ -453,6 +484,8 @@ void ComelitComponent::send_command(ComelitIntercomData data) {
   this->send_buffer[this->send_index] = false;
 
   this->send_index = 0;
+  this->send_data_ = data;
+  this->attempt_ = 1;
   this->sending = true;
   this->preamble = true;
 }

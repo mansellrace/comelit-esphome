@@ -100,6 +100,7 @@ class ComelitComponent : public Component {
   void set_dump(bool dump_raw) { this->dump_raw_ = dump_raw; }
   void set_event(const char *event) { this->event_ = event; }
   void set_simplebus_1(bool simplebus_1) { this->simplebus_1_ = simplebus_1; }
+  void set_send_attempts(uint8_t send_attempts) { this->send_attempts_ = send_attempts; }
 
   void setup() override;
   void dump_config() override;
@@ -129,6 +130,11 @@ class ComelitComponent : public Component {
   uint32_t buffer_size_{};
   uint32_t time_cap{0};
   bool capacitor{false};
+  uint8_t send_attempts_{1};
+  uint8_t attempt_{0};
+  bool waiting_ack_{false};
+  uint32_t retry_at_{0};
+  ComelitIntercomData send_data_{};
 
   HighFrequencyLoopRequester high_freq_;
   std::vector<uint32_t> temp_;

@@ -26,6 +26,7 @@ CONF_EVENT = "event"
 CONF_COMMAND = "command"
 CONF_ADDRESS = "address"
 CONF_SIMPLEBUS1 = "simplebus_1"
+CONF_SEND_ATTEMPTS = "send_attempts"
 MULTI_CONF = False
 
 HardwareType = comelit_intercom_ns.enum("Hw_Version")
@@ -73,6 +74,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_DUMP, default=False): cv.boolean,
             cv.Optional(CONF_EVENT, default="comelit"): cv.string,
             cv.Optional(CONF_SIMPLEBUS1, default=False): cv.boolean,
+            cv.Optional(CONF_SEND_ATTEMPTS, default=1): cv.int_range(min=1, max=5),
         }   
     )
     .extend(cv.COMPONENT_SCHEMA),
@@ -105,6 +107,7 @@ async def to_code(config):
     cg.add(var.set_dump(config[CONF_DUMP]))
     cg.add(var.set_event("esphome." + config[CONF_EVENT]))
     cg.add(var.set_simplebus_1(config[CONF_SIMPLEBUS1]))
+    cg.add(var.set_send_attempts(config[CONF_SEND_ATTEMPTS]))
 
 
 COMELIT_INTERCOM_SEND_SCHEMA = cv.Schema(

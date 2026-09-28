@@ -330,9 +330,8 @@ void ComelitComponent::comelit_decode(std::vector<uint32_t> src) {
 }
 
 bool ComelitComponent::is_ack(std::vector<uint32_t> src) const {
-  // acknowledge: 4 bursts separated by 3ms spaces, followed by idle or by a long pause
+  // acknowledge: 4 bursts separated by 3ms spaces, often followed by a short spike
   if (src.size() < 8) return false;
-  if (src.size() > 8 && src[7] < 6200) return false;
   for (uint16_t i = 0; i < 7; i++) {
     const uint32_t value = src[i];
     if (i % 2 == 0) {
@@ -341,6 +340,8 @@ bool ComelitComponent::is_ack(std::vector<uint32_t> src) const {
       if (!(value < 3200 && value > 1000)) return false;
     }
   }
+  // a command starting with three 0 bits goes on with a bit space and a full burst
+  if (src.size() > 8 && src[7] < 6200 && src[8] < 6200 && src[8] > 3500) return false;
   return true;
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <utility>
 #include <vector>
 #include "esphome/core/component.h"
@@ -107,7 +108,9 @@ class ComelitComponent : public Component {
   void loop() override;
   uint16_t command, address;
   void register_listener(ComelitIntercomListener *listener);
-  void send_command(ComelitIntercomData data);
+  /// Returns false if another sending is in progress. on_sent is called when the sending is complete.
+  /// send_attempts overrides the component setting for this command, 0 keeps it.
+  bool send_command(ComelitIntercomData data, std::function<void()> on_sent = nullptr, uint8_t send_attempts = 0);
   bool send_buffer[19];
   bool sending, preamble;
   int send_index;
@@ -131,10 +134,14 @@ class ComelitComponent : public Component {
   uint32_t time_cap{0};
   bool capacitor{false};
   uint8_t send_attempts_{1};
+  uint8_t max_attempts_{1};
   uint8_t attempt_{0};
   bool waiting_ack_{false};
   uint32_t retry_at_{0};
   ComelitIntercomData send_data_{};
+  bool settling_{false};
+  uint32_t sent_at_{0};
+  std::function<void()> on_sent_{nullptr};
 
   HighFrequencyLoopRequester high_freq_;
   std::vector<uint32_t> temp_;
@@ -146,16 +153,24 @@ template<typename... Ts> class ComelitIntercomSendAction : public Action<Ts...> 
   ComelitIntercomSendAction(ComelitComponent *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(uint16_t, command)
   TEMPLATABLE_VALUE(uint16_t, address)
+  void set_send_attempts(uint8_t send_attempts) { this->send_attempts_ = send_attempts; }
 
-  void play(const Ts &... x) override {
+  // the next action runs only when the sending is complete, acknowledge and retries included,
+  // so consecutive sends need no delay between them
+  void play_complex(const Ts &... x) override {
+    this->num_running_++;
     ComelitIntercomData data{};
     data.command = this->command_.value(x...);
     data.address = this->address_.value(x...);
-    this->parent_->send_command(data);
+    if (!this->parent_->send_command(data, [this, x...]() mutable { this->play_next_(x...); }, this->send_attempts_))
+      this->play_next_(x...);
   }
+
+  void play(const Ts &... x) override { /* see play_complex */ }
 
  protected:
   ComelitComponent *parent_;
+  uint8_t send_attempts_{0};
 };
 
 

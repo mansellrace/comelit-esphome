@@ -55,7 +55,7 @@ Configuration variables:
 -   **idle**  (_Optional_,  [Time](https://esphome.io/guides/configuration-types#config-time)): The amount of time that a signal should remain stable (i.e. not change) for it to be considered complete. Defaults to  `10ms`.
 -   **buffer_size**  (_Optional_, int): The size of the internal buffer for storing the remote codes. Defaults to  `400b`.
 -  **dump** (_Optional_, bool): If set to on, the timing of received signals is printed on the log. Useful for debugging. If you also set the logger to "VERBOSE" you will also see the raw data received. Defaults to  `false`.
-- **send_attempts** (_Optional_, int): How many times a command is sent if the device it is meant for does not acknowledge it. The receiver of a command answers with a short acknowledge (4 short bursts), and the internal intercoms send the command up to 3 times until it arrives: some devices, for example a secondary entrance panel, only answer from the second or third attempt. With a value above 1 the component waits for the acknowledge after every command, sends it again 730ms after the end of the previous attempt, and stops as soon as the acknowledge arrives. Stopping matters: some commands toggle, for example command 20 switches the video off when it is already on. Tested on Simplebus 2 only. From `1` to `5`, defaults to `1` (no retry).
+- **send_attempts** (_Optional_, int): How many times a command is sent if the device it is meant for does not acknowledge it. The receiver of a command answers with a short acknowledge (4 short bursts), and the internal intercoms send the command up to 3 times until it arrives: some devices, for example a secondary entrance panel, only answer from the second or third attempt. With a value above 1 the component waits for the acknowledge after every command, sends it again 730ms after the end of the previous attempt, and stops as soon as the acknowledge arrives. Stopping matters: some commands toggle, for example command 20 switches the video off when it is already on. Tested on Simplebus 2 only. From `1` to `10`, defaults to `1` (no retry).
 - <a id="eventlist">**event**</a>  (_Optional_, string): The name of the event that will be generated on home assistant when receiving a command from the bus. For example, if  set to `comelit`, the event generated will be "esphome.comelit".
 Read more about how to use it in the [Home Assistant event section](#home-assistant-event)
 Default to `comelit`.
@@ -211,6 +211,9 @@ To send commands to the bus, the following action is available:
 
 - **command** (**Required**, int)
 - **address** (**Required**, int)
+- **send_attempts** (*Optional*, int): Overrides the `send_attempts` option of `comelit_intercom` for this command only. From `1` to `10`.
+
+The action waits until the command has been sent, so the actions that follow it run only after that. With `send_attempts` above 1 it also waits for the acknowledge, or until all the attempts have been used.
 
 ### Button:
 The action can be easily inserted into a button type entity:
@@ -239,14 +242,14 @@ You can create a home assistant service, which can easily be invoked by an autom
 
 ### Sending multiple commands:
 There are some special configurations that require sending 2 or more commands consecutively on the bus.
-In this case, a delay of at least 200ms must be inserted between the commands (one command takes about 180ms to be sent)
+Since each send waits until its command has been sent, the commands can simply follow each other:
 
 	- comelit_intercom.send:
-	    command: 29
+	    command: 19
 	    address: 1
-	- delay: 200ms
 	- comelit_intercom.send:
 	    command: 16
 	    address: 1
 
-If `send_attempts` is above 1, each command also waits for the acknowledge, so the delay has to be longer: at least 500ms when the acknowledge arrives at the first attempt, about 3s when all 3 attempts are needed. A command sent while the previous one is still in progress is cancelled, and the log says so.
+Older versions needed a delay of at least 200ms between the commands; leaving it in place does no harm.
+A command sent while another one is still in progress, for example by a different automation, is cancelled, and the log says so.

@@ -74,7 +74,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_DUMP, default=False): cv.boolean,
             cv.Optional(CONF_EVENT, default="comelit"): cv.string,
             cv.Optional(CONF_SIMPLEBUS1, default=False): cv.boolean,
-            cv.Optional(CONF_SEND_ATTEMPTS, default=1): cv.int_range(min=1, max=5),
+            cv.Optional(CONF_SEND_ATTEMPTS, default=1): cv.int_range(min=1, max=10),
         }   
     )
     .extend(cv.COMPONENT_SCHEMA),
@@ -115,17 +115,18 @@ COMELIT_INTERCOM_SEND_SCHEMA = cv.Schema(
         cv.GenerateID(): cv.use_id(ComelitIntercom),
         cv.Required(CONF_COMMAND): cv.templatable(cv.hex_uint16_t),
         cv.Required(CONF_ADDRESS): cv.templatable(cv.hex_uint16_t),
+        cv.Optional(CONF_SEND_ATTEMPTS): cv.int_range(min=1, max=10),
     }
 )
 
 
 # ESPHome >= 2026 wants actions to declare whether they defer play_next_().
-# ComelitIntercomSendAction only overrides play(), which returns as soon as the frame is
-# queued (loop() does the actual transmission), so play_next_() always runs before
-# play_complex() returns -> synchronous=True. Passed conditionally so the component keeps
-# working on older ESPHome releases where register_action() has no such parameter.
+# ComelitIntercomSendAction defers it: the next action runs only when the component has
+# finished sending the command (acknowledge and retries included), from a callback called
+# by ComelitComponent::loop() -> synchronous=False. Passed conditionally so the component
+# keeps working on older ESPHome releases where register_action() has no such parameter.
 _SEND_ACTION_KWARGS = (
-    {"synchronous": True}
+    {"synchronous": False}
     if "synchronous" in inspect.signature(automation.register_action).parameters
     else {}
 )
@@ -144,4 +145,6 @@ async def comelit_intercom_send_to_code(config, action_id, template_args, args):
     cg.add(var.set_command(template_))
     template_ = await cg.templatable(config[CONF_ADDRESS], args, cg.uint16)
     cg.add(var.set_address(template_))
+    if CONF_SEND_ATTEMPTS in config:
+        cg.add(var.set_send_attempts(config[CONF_SEND_ATTEMPTS]))
     return var

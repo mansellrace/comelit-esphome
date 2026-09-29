@@ -1,0 +1,257 @@
+blueprint:
+  name: Comelit Doorbell – Notification with Door Opener
+  description: >
+    For the [comelit-esphome](https://github.com/mansellrace/comelit-esphome)
+    project (Comelit Simplebus → ESPHome).
+
+    When someone rings, the selected phones get a notification with a door
+    opener button – optionally only the phones that are currently at home.
+    Long-press the notification and tap “Open door” to open the door.
+
+    Protection against accidental opening: the button is only reachable via
+    long-press, unlock/Face ID is required when the phone is locked (iOS,
+    Android 12+), action IDs are unique per ring (old notifications do
+    nothing) and there is a time window after the ring. Afterwards the
+    notification is removed from all phones – optionally with a message
+    saying who opened the door.
+
+    Requirements: Home Assistant Companion App on the phones. For
+    “only when at home” location tracking must be enabled in the app
+    (the phone needs a device_tracker).
+  author: matzZz
+  source_url: https://github.com/mansellrace/comelit-esphome/blob/main/blueprints/automation/comelit_doorbell_door_opener.yaml
+  domain: automation
+  homeassistant:
+    min_version: "2025.4.0"
+  input:
+    devices:
+      name: Intercom & phones
+      icon: mdi:doorbell
+      input:
+        ring_sensor:
+          name: Ring sensor
+          description: Binary sensor of the Comelit board that turns on when a call comes in (e.g. …_incoming_call).
+          selector:
+            entity:
+              filter:
+                - domain: binary_sensor
+        door_button:
+          name: Door opener
+          description: Button of the Comelit board that opens the door (e.g. …_open_door).
+          selector:
+            entity:
+              filter:
+                - domain: button
+        phones:
+          name: Phones
+          description: Phones with the Home Assistant app that get notified.
+          selector:
+            device:
+              multiple: true
+              filter:
+                - integration: mobile_app
+        only_home:
+          name: Only notify phones that are at home
+          description: Phones without location tracking (no device_tracker) will not be notified when this is on.
+          default: true
+          selector:
+            boolean:
+    timing:
+      name: Time window
+      icon: mdi:timer-outline
+      collapsed: true
+      input:
+        window_open:
+          name: Time window to open (seconds)
+          description: How long after the ring “Open door” can be tapped.
+          default: 120
+          selector:
+            number:
+              min: 15
+              max: 600
+              step: 5
+              unit_of_measurement: s
+              mode: box
+    texts:
+      name: Texts
+      icon: mdi:text
+      collapsed: true
+      input:
+        txt_title:
+          name: Title
+          default: "🔔 Front door"
+          selector:
+            text:
+        txt_ring:
+          name: Message when ringing
+          default: Someone is at the door.
+          selector:
+            text:
+        feedback:
+          name: Send a message after opening
+          description: All phones get a message saying who opened the door. Off = the notification simply disappears.
+          default: false
+          selector:
+            boolean:
+        txt_opened:
+          name: Message text after opening
+          description: Only used when the message is turned on. Placeholders {name} = who opened, {time} = time of day.
+          default: Front door opened by {name} at {time}.
+          selector:
+            text:
+        btn_open:
+          name: Button “Open”
+          default: Open door
+          selector:
+            text:
+        btn_ignore:
+          name: Button “Ignore”
+          default: Ignore
+          selector:
+            text:
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  phones: !input phones
+  only_home: !input only_home
+  window_open: !input window_open
+  txt_title: !input txt_title
+  txt_ring: !input txt_ring
+  feedback: !input feedback
+  txt_opened: !input txt_opened
+  btn_open: !input btn_open
+  btn_ignore: !input btn_ignore
+  tag: "{{ 'comelit_doorbell_' ~ (this.entity_id | default('automation') | replace('.', '_')) }}"
+  # List of phones to notify: index, name, notify service
+  targets: >-
+    {%- set ns = namespace(l=[]) -%}
+    {%- for d in (phones if phones is list else [phones]) -%}
+      {%- set tracker = device_entities(d) | select('match', 'device_tracker\.') | list -%}
+      {%- set ok = (not only_home) or (tracker | count > 0 and is_state(tracker[0], 'home')) -%}
+      {%- if ok -%}
+        {%- set ns.l = ns.l + [{
+              'idx': ns.l | count,
+              'name': device_attr(d, 'name_by_user') or device_attr(d, 'name'),
+              'service': 'notify.mobile_app_' ~ (device_attr(d, 'name') | slugify)
+            }] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ ns.l }}
+
+triggers:
+  - trigger: state
+    entity_id: !input ring_sensor
+    to: "on"
+
+conditions:
+  - alias: At least one phone gets notified
+    condition: template
+    value_template: "{{ targets | count > 0 }}"
+
+actions:
+  - variables:
+      prefix_open: "{{ 'COMELIT_OPEN_' ~ context.id ~ '_' }}"
+      deadline: "{{ now().timestamp() + (window_open | float) }}"
+      tapper: null
+      tapper_user: null
+
+  - alias: Ring notification to all target phones
+    repeat:
+      for_each: "{{ targets }}"
+      sequence:
+        - action: "{{ repeat.item.service }}"
+          continue_on_error: true
+          data:
+            title: "{{ txt_title }}"
+            message: "{{ txt_ring }}"
+            data:
+              tag: "{{ tag }}"
+              ttl: 0
+              priority: high
+              push:
+                interruption-level: time-sensitive
+              actions:
+                - action: "{{ prefix_open ~ repeat.item.idx }}"
+                  title: "{{ btn_open }}"
+                  authenticationRequired: true
+                  destructive: true
+                - action: COMELIT_IGNORE
+                  title: "{{ btn_ignore }}"
+
+  - alias: "Wait for “Open door” (other notification actions are skipped)"
+    repeat:
+      while:
+        - condition: template
+          value_template: "{{ tapper is none and now().timestamp() < (deadline | float) }}"
+      sequence:
+        - wait_for_trigger:
+            - trigger: event
+              event_type: mobile_app_notification_action
+          timeout: "{{ [ (deadline | float) - now().timestamp(), 0.5 ] | max }}"
+          continue_on_timeout: true
+        - variables:
+            tapper: >-
+              {%- set a = (wait.trigger.event.data.action | default('')) if wait.trigger is not none else '' -%}
+              {{ (a[prefix_open | length:] | int(-1)) if a.startswith(prefix_open) else none }}
+            tapper_user: >-
+              {{ wait.trigger.event.context.user_id if wait.trigger is not none else none }}
+
+  - alias: "Timeout: clear notifications and stop"
+    if:
+      - condition: template
+        value_template: "{{ tapper is none or tapper | int(-1) < 0 or tapper | int >= targets | count }}"
+    then:
+      - repeat:
+          for_each: "{{ targets }}"
+          sequence:
+            - action: "{{ repeat.item.service }}"
+              continue_on_error: true
+              data:
+                message: clear_notification
+                data:
+                  tag: "{{ tag }}"
+      - stop: Nobody tapped “Open door” in time
+
+  - alias: Open the door
+    action: button.press
+    target:
+      entity_id: !input door_button
+
+  - alias: Send feedback or remove the notification
+    if:
+      - condition: template
+        value_template: "{{ feedback }}"
+    then:
+      - variables:
+          opener: >-
+            {{ states.person
+               | selectattr('attributes.user_id', 'defined')
+               | selectattr('attributes.user_id', 'eq', tapper_user)
+               | map(attribute='name') | list | first
+               | default(targets[tapper | int].name) }}
+          message_text: >-
+            {{ txt_opened | replace('{name}', opener) | replace('{time}', now().strftime('%H:%M')) }}
+      - alias: Feedback to all target phones (replaces the ring notification)
+        repeat:
+          for_each: "{{ targets }}"
+          sequence:
+            - action: "{{ repeat.item.service }}"
+              continue_on_error: true
+              data:
+                title: "{{ txt_title }}"
+                message: "{{ message_text }}"
+                data:
+                  tag: "{{ tag }}"
+    else:
+      - alias: Remove the ring notification from all phones
+        repeat:
+          for_each: "{{ targets }}"
+          sequence:
+            - action: "{{ repeat.item.service }}"
+              continue_on_error: true
+              data:
+                message: clear_notification
+                data:
+                  tag: "{{ tag }}"

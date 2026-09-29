@@ -19,5 +19,8 @@ You can use the button below to install the pre-built firmware directly to your 
 Connect to the `comelit-default` Wi-Fi network the device creates, enter your Wi-Fi
 credentials in the captive portal, and Home Assistant will discover the device
 automatically. Firmware updates then arrive on their own as an update entity.
-Change the the intercom address entity to match the address of your intercom, and the
-binary sensor will go on when someone call your intercom
+Change the intercom address entity to match the address of your intercom, and the
+binary sensor will go on when someone calls your intercom.
+
+To get a notification on your phone with a button that opens the door, see the
+[Home Assistant blueprint](https://github.com/mansellrace/comelit-esphome#doorbell-notification-on-your-phone).

@@ -110,7 +110,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-09-28:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-10-01:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   if (this->tx2_enabled_) {
@@ -598,7 +598,7 @@ void ComelitComponent::sending_loop_simplebus_1() {
       while (this->send_next_bit >= micros()) {
       }
       this->send_next_bit = 0;
-      this->send_next_change = now + 16000;
+      this->send_next_change = now + 3000 + 16000;  // 16ms pause after the 3ms start pulse, as in simplebus 2
       this->tx_pin_->digital_write(false);
       if (this->tx2_enabled_) {
         this->tx2_pin_->digital_write(false);

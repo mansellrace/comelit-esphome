@@ -407,18 +407,19 @@ void ComelitComponent::comelit_decode(std::vector<uint32_t> src) {
 }
 
 bool ComelitComponent::is_ack(std::vector<uint32_t> src) const {
-  // acknowledge: 4 bursts separated by 3ms spaces, often followed by a short spike
+  // acknowledge: 4 bursts separated by 3ms spaces, often followed by a short spike.
+  // A weak acknowledge on a busy bus (an open call) shows bursts down to ~2.9ms and spaces up to ~3.3ms.
   if (src.size() < 8) return false;
   for (uint16_t i = 0; i < 7; i++) {
     const uint32_t value = src[i];
     if (i % 2 == 0) {
-      if (!(value < 6200 && value > 3500)) return false;
+      if (!(value < 6200 && value > 2500)) return false;
     } else {
-      if (!(value < 3200 && value > 1000)) return false;
+      if (!(value < 3500 && value > 1000)) return false;
     }
   }
   // a command starting with three 0 bits goes on with a bit space and a full burst
-  if (src.size() > 8 && src[7] < 6200 && src[8] < 6200 && src[8] > 3500) return false;
+  if (src.size() > 8 && src[7] < 6200 && src[8] < 6200 && src[8] > 2500) return false;
   return true;
 }
 
@@ -436,8 +437,14 @@ void IRAM_ATTR HOT ComelitComponentStore::gpio_intr(ComelitComponentStore *arg) 
 
   const uint32_t last_change = arg->buffer[arg->buffer_write_at];
   const uint32_t time_since_change = now - last_change;
-  if (time_since_change <= arg->filter_us)
+  if (time_since_change <= arg->filter_us) {
+    // a pulse shorter than the filter: drop its first edge too, otherwise the level stays
+    // inverted and the first edge of the next real pulse is discarded by the parity check.
+    // The reader never holds an edge this recent, unless it is its own reference edge.
+    if (arg->buffer_write_at != arg->buffer_read_at)
+      arg->buffer_write_at = (arg->buffer_write_at + arg->buffer_size - 1) % arg->buffer_size;
     return;
+  }
 
   arg->buffer[arg->buffer_write_at = next] = now;
 }

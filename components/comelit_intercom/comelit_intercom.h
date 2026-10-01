@@ -31,6 +31,7 @@ class ComelitIntercomListener {
     void set_command(uint16_t command) { this->command_ = command; }
     template<typename V> void set_address(V address) { this->address_ = address; }
     void set_auto_off(uint16_t auto_off) { this->auto_off_ = auto_off; }
+    void set_ack(bool ack) { this->ack_ = ack; }
 
     /// Return true when a frame concerns this listener. The default matches one exact
     /// command/address pair; the command is checked first so that a templated address is
@@ -50,6 +51,8 @@ class ComelitIntercomListener {
     TemplatableValue<uint16_t> address_;
     uint16_t command_{0};
     uint16_t auto_off_{0};
+    /// Answer the matching frames with an acknowledge, as an internal intercom does.
+    bool ack_{false};
 };
 
 /// Listener driven by a list of commands; an empty list accepts every command.
@@ -142,6 +145,19 @@ class ComelitComponent : public Component {
   bool settling_{false};
   uint32_t sent_at_{0};
   std::function<void()> on_sent_{nullptr};
+  uint8_t send_length_{19};
+  // acknowledge sent to a received frame, and the one command that may wait for it
+  void schedule_ack_();
+  void start_ack_();
+  void start_send_(ComelitIntercomData data, std::function<void()> on_sent, uint8_t send_attempts);
+  bool ack_phase_{false};
+  bool ack_sending_{false};
+  uint32_t ack_at_{0};
+  ComelitIntercomData ack_data_{};
+  bool queued_{false};
+  ComelitIntercomData queued_data_{};
+  std::function<void()> queued_on_sent_{nullptr};
+  uint8_t queued_attempts_{0};
 
   HighFrequencyLoopRequester high_freq_;
   std::vector<uint32_t> temp_;

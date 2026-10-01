@@ -8,6 +8,9 @@ namespace esphome {
 namespace comelit_intercom {
 
 static const char *const TAG = "comelit_intercom";
+// delay between decoding a frame and starting its acknowledge; the frame is decoded idle_us
+// after its end, real devices answer 20-80ms after the end of the frame
+static const uint32_t ACK_DELAY_MS = 20;
 
 ComelitComponent *global_comelit_intercom = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
@@ -212,7 +215,10 @@ void ComelitComponent::loop() {
     }
     if (!this->sending) {
       this->sent_at_ = millis();
-      if (this->max_attempts_ > 1) {
+      if (this->ack_sending_) {
+        this->ack_sending_ = false;
+        this->settling_ = true;
+      } else if (this->max_attempts_ > 1) {
         // frame sent: wait for the acknowledge, like the intercom does, before sending it again
         this->waiting_ack_ = true;
         this->retry_at_ = this->sent_at_ + 730;
@@ -226,6 +232,11 @@ void ComelitComponent::loop() {
   auto &s = this->store_;
   const uint32_t write_at = s.buffer_write_at;
   const uint32_t dist = (s.buffer_size + write_at - s.buffer_read_at) % s.buffer_size;
+  // acknowledge a received frame, unless another frame is still waiting to be decoded
+  if (this->ack_phase_ && !this->settling_ && dist <= 1 && (int32_t) (now_millis - this->ack_at_) >= 0) {
+    this->start_ack_();
+    return;
+  }
   // no ACK in time: send again, but not while a received frame is still waiting to be decoded
   if (this->waiting_ack_ && dist <= 1 && (int32_t) (now_millis - this->retry_at_) >= 0) {
     this->waiting_ack_ = false;
@@ -255,6 +266,14 @@ void ComelitComponent::loop() {
       std::function<void()> on_sent = std::move(this->on_sent_);
       this->on_sent_ = nullptr;
       on_sent();
+    }
+    if (this->ack_phase_) {
+      this->ack_phase_ = false;
+      if (this->queued_) {
+        this->queued_ = false;
+        this->start_send_(this->queued_data_, std::move(this->queued_on_sent_), this->queued_attempts_);
+        this->queued_on_sent_ = nullptr;
+      }
     }
     return;
   }
@@ -361,7 +380,15 @@ void ComelitComponent::comelit_decode(std::vector<uint32_t> src) {
       this->address = (msgCode[7] * 128) + (msgCode[6] * 64) + (msgCode[5] * 32) + (msgCode[4] * 16) + (msgCode[3] * 8) + (msgCode[2] * 4) + (msgCode[1] * 2) + msgCode[0];
       if (this->command != 63){
         ESP_LOGD(TAG, "Received command %i, address %i", this->command, this->address);
-        
+
+        // before the listeners: a command sent by their automations must wait for the acknowledge
+        for (auto &listener : listeners_) {
+          if (listener->ack_ && listener->matches(this->command, this->address)) {
+            this->schedule_ack_();
+            break;
+          }
+        }
+
         if (strcmp(event_, "esphome.none") != 0) {
           ESP_LOGD(TAG, "Send event to home assistant on %s", event_);
           esphome::api::CustomAPIDevice capi;
@@ -455,11 +482,58 @@ void ComelitComponent::register_listener(ComelitIntercomListener *listener) {
   }
 
 
+void ComelitComponent::schedule_ack_() {
+  if (this->sending || this->waiting_ack_ || this->settling_ || this->ack_phase_) {
+    ESP_LOGD(TAG, "ACK for command %i address %i skipped, another sending is in progress", this->command,
+             this->address);
+    return;
+  }
+  this->ack_data_.command = this->command;
+  this->ack_data_.address = this->address;
+  this->ack_phase_ = true;
+  this->ack_at_ = millis() + ACK_DELAY_MS;
+}
+
+void ComelitComponent::start_ack_() {
+  ESP_LOGD(TAG, "Sending ACK for command %i address %i", this->ack_data_.command, this->ack_data_.address);
+  this->rx_pin_->detach_interrupt();
+  if (capacitor) {
+    digitalWrite(13, LOW);
+    time_cap = millis() + 3000;
+  }
+  // acknowledge: 4 bursts separated by 3ms spaces, that is four 0 bits without the start pulse
+  for (int i = 0; i < 4; i++) {
+    this->send_buffer[i] = false;
+  }
+  this->send_length_ = 4;
+  this->send_index = 0;
+  const uint32_t now = micros();
+  this->send_next_bit = now + 3000;
+  this->send_next_change = this->simplebus_1_ ? now + 3020 : now + 20;
+  this->preamble = false;
+  this->ack_sending_ = true;
+  this->sending = true;
+}
+
 bool ComelitComponent::send_command(ComelitIntercomData data, std::function<void()> on_sent, uint8_t send_attempts) {
-  if (this->sending || this->waiting_ack_ || this->settling_){
+  if (this->ack_phase_ && !this->queued_) {
+    // a frame received just now is being acknowledged: this command follows the acknowledge
+    ESP_LOGD(TAG, "Command %i address %i will be sent after the ACK", data.command, data.address);
+    this->queued_ = true;
+    this->queued_data_ = data;
+    this->queued_on_sent_ = std::move(on_sent);
+    this->queued_attempts_ = send_attempts;
+    return true;
+  }
+  if (this->sending || this->waiting_ack_ || this->settling_ || this->ack_phase_){
     ESP_LOGD(TAG, "Sending of command %i address %i cancelled, another sending is in progress", data.command, data.address);
     return false;
   }
+  this->start_send_(data, std::move(on_sent), send_attempts);
+  return true;
+}
+
+void ComelitComponent::start_send_(ComelitIntercomData data, std::function<void()> on_sent, uint8_t send_attempts) {
   if (this->simplebus_1_){
     ESP_LOGD(TAG, "Simplebus 1: Sending command %i, address %i", data.command, data.address);
   } else {
@@ -503,13 +577,13 @@ bool ComelitComponent::send_command(ComelitIntercomData data, std::function<void
   this->send_buffer[this->send_index] = false;
 
   this->send_index = 0;
+  this->send_length_ = 19;
   this->send_data_ = data;
   this->attempt_ = 1;
   this->max_attempts_ = send_attempts > 0 ? send_attempts : this->send_attempts_;
   this->on_sent_ = std::move(on_sent);
   this->sending = true;
   this->preamble = true;
-  return true;
 }
 
 void ComelitComponent::sending_loop_simplebus_2() {
@@ -545,7 +619,7 @@ void ComelitComponent::sending_loop_simplebus_2() {
       this->preamble = false;
     }
   } else {                                       // bit sending routine, preamble ended
-    if (this->send_index < 19) {
+    if (this->send_index < this->send_length_) {
       if (this->send_next_change > 0) {           // carrier generation
         while (this->send_next_bit >= micros()) {
           if (this->send_next_change < micros()) {
@@ -611,7 +685,7 @@ void ComelitComponent::sending_loop_simplebus_1() {
       this->preamble = false;
     }
   } else {                                       // bit sending routine, preamble ended
-    if (this->send_index < 19) {
+    if (this->send_index < this->send_length_) {
       if (this->send_next_change > 0) {           // carrier generation
         this->tx_pin_->digital_write(true);
         if (this->tx2_enabled_) {

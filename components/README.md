@@ -92,6 +92,25 @@ Configuration examples:
     If you have friendly_name set for your device and you want 
     the sensor to use that name, you can set `name: None`.
 
+- **ack** (*Optional*, boolean): When the sensor's command and address are received, answer with the same short acknowledge an internal intercom sends, so that the caller stops repeating the command. Use it only for an address no real device answers, for example a call to an internal number that does not exist, used only to trigger an automation: otherwise two acknowledges overlap on the bus. No acknowledge is sent while the component is sending a command of its own. Defaults to `false`.
+
+Example: command 16 sent by the entrance panel to the non-existent internal 90 opens the doors. The commands sent by the automation follow the acknowledge automatically.
+
+	binary_sensor:
+	  - platform: comelit_intercom
+	    command: 16
+	    address: 90
+	    name: Virtual intercom 90
+	    ack: true
+	    auto_off: 1s
+	    on_press:
+	      - comelit_intercom.send:
+	          command: 16
+	          address: 16
+	      - comelit_intercom.send:
+	          command: 29
+	          address: 1
+
 
 
 Text sensor

@@ -12,6 +12,7 @@ CONF_COMMAND = "command"
 CONF_ADDRESS = "address"
 CONF_NAME = "name"
 CONF_AUTO_OFF = "auto_off"
+CONF_ACK = "ack"
 
 DEPENDENCIES = ["comelit_intercom"]
 
@@ -24,7 +25,8 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_COMMAND, default=50): cv.int_,
             cv.Optional(CONF_ICON, default="mdi:doorbell"): cv.icon,
             cv.Optional(CONF_NAME, default="Incoming call"): cv.string,
-            cv.Optional(CONF_AUTO_OFF, default="30s"): cv.positive_time_period_seconds
+            cv.Optional(CONF_AUTO_OFF, default="30s"): cv.positive_time_period_seconds,
+            cv.Optional(CONF_ACK, default=False): cv.boolean,
         }
     ),
 )
@@ -36,5 +38,7 @@ async def to_code(config):
     template_ = await cg.templatable(config[CONF_ADDRESS], [], cg.uint16)
     cg.add(var.set_address(template_))
     cg.add(var.set_auto_off(config[CONF_AUTO_OFF]))
+    if config[CONF_ACK]:
+        cg.add(var.set_ack(True))
     comelit_intercom = await cg.get_variable(config[CONF_COMELIT_ID])
     cg.add(comelit_intercom.register_listener(var))

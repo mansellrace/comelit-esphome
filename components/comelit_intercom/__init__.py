@@ -54,6 +54,10 @@ def validate_config(config):
             raise cv.Invalid(
                 f"For HW version {hw_version}, the sensitivity must {SENSITIVITY_TYPES[hw_version]} "
             )
+    # the receiver relies on a frame being decoded only after idle, when no filtered glitch can
+    # still remove its last edge from the buffer
+    if config[CONF_IDLE].total_microseconds <= config[CONF_FILTER].total_microseconds:
+        raise cv.Invalid(f"{CONF_IDLE} must be longer than {CONF_FILTER}")
     return config
 
 CONFIG_SCHEMA = cv.All(

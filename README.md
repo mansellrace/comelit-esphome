@@ -53,7 +53,7 @@ Prerequisite: Home Assistant.
 Boards supplied by me arrive already flashed. If you assembled your own, install the firmware from the [project page](https://mansellrace.github.io/comelit-esphome/) straight from your browser over USB.
 
 - Connect the pcb to the bus. A wifi network called comelit-default will appear. Connect and open the browser, a page will pop up that allows you to set up your wifi network. If it does not open go [here](http://192.168.4.1)
-- Home Assistant will discover the device automatically. Add it from the ESPHome integration. You will get three entities: an **Intercom address** number, an **Incoming call** binary sensor and an **Open Door** button.
+- Home Assistant will discover the device automatically. Add it from the ESPHome integration. Among its entities you will find an **Intercom address** number, an **Incoming call** binary sensor and an **Open Door** button.
 - Find your address: go [here](http://comelit-default.local/), where you will find a log of the commands received from the bus. Press a button on your intercom and note the address it generated.
 - Set the **Intercom address** number to that address. The **Incoming call** sensor now fires whenever someone calls your intercom. The address is read at runtime, so there is nothing to recompile.
 - The **Open Door** button sends command 16, which in most cases already opens the main gate.
@@ -61,6 +61,22 @@ Boards supplied by me arrive already flashed. If you assembled your own, install
 - Have fun!
 
 Besides the binary sensor, every command received on the bus is also fired as a Home Assistant event, which you can use to trigger automations without adding any entity. [More information here](components/README.md#event)
+
+## Doorbell notification on your phone
+
+[@matzZz](https://github.com/matzZz) built a Home Assistant blueprint on top of this project: when someone rings, the phones you choose get a push notification with an **Open door** button.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fmansellrace%2Fcomelit-esphome%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fcomelit_doorbell_door_opener.yaml)
+
+- The door cannot be opened by accident: the button only shows up on a long press, a locked phone asks for Face ID or to be unlocked first, and the button works only for a limited time after the ring (2 minutes by default). Every ring gets its own button, so an old notification opens nothing.
+- As soon as someone opens the door, or the time runs out, the notification disappears from every phone. Optionally, everyone gets a message saying who opened.
+- It can notify only the phones that are at home.
+
+It only needs two entities the device already has: choose **Incoming call** as the ring sensor and **Open Door** as the door opener.
+
+Requirements: Home Assistant 2025.4 or later, and the Home Assistant Companion app on the phones. To notify only the phones that are at home, location tracking must be enabled in the app.
+
+You can also install it by hand: copy [comelit_doorbell_door_opener.yaml](blueprints/automation/comelit_doorbell_door_opener.yaml) into the `blueprints/automation/` folder of your Home Assistant configuration.
 
 ## Customising your device
 
@@ -91,3 +107,4 @@ An explanation of the commands that can be found on the bus can be found [here](
 - **2026, August**: The address of a binary sensor can be a lambda, so it can be driven from a Home Assistant `number` entity and changed at runtime without recompiling anything.
 - **2026, August**: Two new entities report what travels on the bus: a `text_sensor` showing the last command as `C50_A10`, and an `event` entity tied to one address that fires with the command number.
 - **2026, August**: Boards now ship pre-flashed and keep themselves up to date. Each release is built and published automatically, a **Firmware** update entity shows the new version in Home Assistant, and the device can be adopted in the ESPHome Device Builder to get the whole configuration for editing. Esphome compiler is no longer required for most installations, and the setup is quicker. Blank boards can be flashed from the browser at the [project page](https://mansellrace.github.io/comelit-esphome/).
+- **2026, September**: Thanks to [@matzZz](https://github.com/matzZz) for a Home Assistant blueprint that sends a push notification with an "Open door" button when someone rings. [Details here](#doorbell-notification-on-your-phone)

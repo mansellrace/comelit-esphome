@@ -39,19 +39,20 @@ Example of a configuration entry, which generates a binary_sensor entity that go
 	          command: 16
 	          address: 10
 
-More configuration examples are available at this link: (under construction)
+A complete, working example is the configuration the boards ship with: [comelit-default.yaml](../comelit-default.yaml)
 
 
 Configuration variables:
 ------------------------
 
-- **hw_version** (*Optional*, string): The hardware version of the pcb. One of  ``older`` or ``2.5``. Defaults to ``2.5``.
+- **hw_version** (*Optional*, string): The hardware version of the pcb. One of ``older``, ``2.5`` or ``2.6``. Defaults to ``2.5``.
 - **sensitivity** (*Optional*, string): The level of receiving sensitivity.
-  - For hardware version 2.5, the allowed values are ``high``  and  ``low`` .
+  - For hardware version 2.6, from ``1`` to ``9``. Defaults to ``8``.
+  - For hardware version 2.5, the allowed values are ``high`` and ``low``. Defaults to ``high``.
   - For older hardware version, it is not possible to change the sensitivity.
 - **rx_pin** (*Optional*, pin): The pin used to receive commands. Defaults to ``D6``.
 - **tx_pin** (*Optional*, pin): The pin used to transmitt commands. Defaults to ``D1``.
-- **filter** (_Optional_,  [Time](https://esphome.io/guides/configuration-types#config-time)): Filter any pulses that are shorter than this. Useful for removing glitches from noisy signals. At most `2500us`, defaults to `1000us`. 
+- **filter** (_Optional_,  [Time](https://esphome.io/guides/configuration-types#config-time)): Filter any pulses that are shorter than this. Useful for removing glitches from noisy signals. Defaults to `1000us`, maximum `2500us`.
 -   **idle**  (_Optional_,  [Time](https://esphome.io/guides/configuration-types#config-time)): The amount of time that a signal should remain stable (i.e. not change) for it to be considered complete. It must be longer than `filter`. Defaults to  `10ms`.
 -   **buffer_size**  (_Optional_, int): The size of the internal buffer for storing the remote codes. Defaults to  `400b`.
 -  **dump** (_Optional_, bool): If set to on, the timing of received signals is printed on the log. Useful for debugging. If you also set the logger to "VERBOSE" you will also see the raw data received. Defaults to  `false`.
@@ -213,7 +214,7 @@ To intercept this event to trigger an home assistant automation, you can use a t
 
 The trigger configuration will look like this:
 
-	platform: event
+	trigger: event
 	event_type: esphome.comelit
 	event_data:
 	  command: "50"

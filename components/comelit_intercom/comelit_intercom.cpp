@@ -113,7 +113,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-10-01:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-10-02:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   if (this->tx2_enabled_) {
@@ -418,8 +418,9 @@ bool ComelitComponent::is_ack(std::vector<uint32_t> src) const {
       if (!(value < 3500 && value > 1000)) return false;
     }
   }
-  // a command starting with three 0 bits goes on with a bit space and a full burst
-  if (src.size() > 8 && src[7] < 6200 && src[8] < 6200 && src[8] > 2500) return false;
+  // a command starting with three 0 bits goes on with a bit space and a full burst; command bursts
+  // stay above 3.5ms even when an ACK is weak, and a short spike after the ACK must not count as one
+  if (src.size() > 8 && src[7] < 6200 && src[8] < 6200 && src[8] > 3500) return false;
   return true;
 }
 

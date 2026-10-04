@@ -101,6 +101,10 @@ void ComelitComponent::setup() {
   s.buffer = new uint32_t[s.buffer_size];
   void *buf = (void *) s.buffer;
   memset(buf, 0, s.buffer_size * sizeof(uint32_t));
+  // start on the last (odd) index, so that the first edge accepted is a carrier start at index 0:
+  // starting on index 0 the first carrier start failed the parity check and the first pulse was lost
+  s.buffer_write_at = s.buffer_size - 1;
+  s.buffer_read_at = s.buffer_size - 1;
 
   s.rx_pin = this->rx_pin_->to_isr();
   //s.reset();

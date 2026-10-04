@@ -113,7 +113,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-10-02:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-10-04:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   if (this->tx2_enabled_) {
@@ -407,6 +407,19 @@ void ComelitComponent::comelit_decode(std::vector<uint32_t> src) {
 }
 
 bool ComelitComponent::is_ack(std::vector<uint32_t> src) const {
+  // simplebus 1 acknowledge: 4 bursts of 3ms, each seen as two ~1.5ms pulses (as in simplebus 1 commands),
+  // so 15 short values, then idle or a spike. A command starting with four 0 bits begins the same way,
+  // but goes on for 76 values.
+  if (src.size() >= 16 && src.size() <= 18) {
+    bool sb1 = true;
+    for (uint16_t i = 0; i < 15; i++) {
+      if (!(src[i] < 2000 && src[i] > 1000)) {
+        sb1 = false;
+        break;
+      }
+    }
+    if (sb1 && src[15] > 2000) return true;
+  }
   // acknowledge: 4 bursts separated by 3ms spaces, often followed by a short spike.
   // A weak acknowledge on a busy bus (an open call) shows bursts down to ~2.9ms and spaces up to ~3.3ms.
   if (src.size() < 8) return false;

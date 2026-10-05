@@ -1,6 +1,8 @@
 #include "comelit_intercom.h"
 #include "esphome/core/log.h"
+#ifdef USE_API
 #include "esphome/components/api/custom_api_device.h"
+#endif
 #include "esphome/core/application.h"
 #include <Arduino.h>
 
@@ -393,11 +395,13 @@ void ComelitComponent::comelit_decode(std::vector<uint32_t> src) {
           }
         }
 
+#ifdef USE_API
         if (strcmp(event_, "esphome.none") != 0) {
           ESP_LOGD(TAG, "Send event to home assistant on %s", event_);
           esphome::api::CustomAPIDevice capi;
           capi.fire_homeassistant_event(event_, {{"command", std::to_string(id(command))}, {"address", std::to_string(id(address))}});
         }
+#endif
         for (auto &listener : listeners_) {
           if (!listener->matches(this->command, this->address))
             continue;

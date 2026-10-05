@@ -110,6 +110,10 @@ async def to_code(config):
     cg.add(var.set_buffer_size(config[CONF_BUFFER_SIZE]))
     cg.add(var.set_dump(config[CONF_DUMP]))
     cg.add(var.set_event("esphome." + config[CONF_EVENT]))
+    if config[CONF_EVENT] != "none":
+        # the Home Assistant event is compiled in only when used: with event: none
+        # the api does not need homeassistant_services
+        cg.add_define("USE_COMELIT_INTERCOM_EVENT")
     cg.add(var.set_simplebus_1(config[CONF_SIMPLEBUS1]))
     cg.add(var.set_send_attempts(config[CONF_SEND_ATTEMPTS]))
 

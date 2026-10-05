@@ -10,6 +10,8 @@ Comelit Intercom component
 >
 >      api:
 >        homeassistant_services: true
+>
+> It is not needed if you set `event: none`.
 
 The ``comelit_intercom`` allows you to easily interface the esphome-comelit project on esphome and home assistant
 
@@ -60,7 +62,7 @@ Configuration variables:
 - <a id="eventlist">**event**</a>  (_Optional_, string): The name of the event that will be generated on home assistant when receiving a command from the bus. For example, if  set to `comelit`, the event generated will be "esphome.comelit".
 Read more about how to use it in the [Home Assistant event section](#home-assistant-event)
 Default to `comelit`.
-If this parameter is set to `none` no event will be generated.
+If this parameter is set to `none` no event will be generated, and `homeassistant_services: true` is not needed in the api configuration.
 
 
 Binary sensor

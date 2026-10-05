@@ -194,11 +194,13 @@ void ComelitComponent::dump_config() {
     ESP_LOGCONFIG(TAG, "  Simplebus tx protocol: 2");
   }
   ESP_LOGCONFIG(TAG, "  Send attempts: %i", send_attempts_);
-  if (strcmp(event_, "esphome.none") != 0) {
-    ESP_LOGCONFIG(TAG, "  Event: %s", event_);
-  } else {
-    ESP_LOGCONFIG(TAG, "  Event: disabled");
-  }
+#if defined(USE_API) && defined(USE_COMELIT_INTERCOM_EVENT)
+  ESP_LOGCONFIG(TAG, "  Event: %s", event_);
+#elif defined(USE_COMELIT_INTERCOM_EVENT)
+  ESP_LOGCONFIG(TAG, "  Event: disabled, no api component");
+#else
+  ESP_LOGCONFIG(TAG, "  Event: disabled");
+#endif
 }
 
 void ComelitComponent::loop() {
@@ -395,12 +397,11 @@ void ComelitComponent::comelit_decode(std::vector<uint32_t> src) {
           }
         }
 
-#ifdef USE_API
-        if (strcmp(event_, "esphome.none") != 0) {
-          ESP_LOGD(TAG, "Send event to home assistant on %s", event_);
-          esphome::api::CustomAPIDevice capi;
-          capi.fire_homeassistant_event(event_, {{"command", std::to_string(id(command))}, {"address", std::to_string(id(address))}});
-        }
+        // compiled in only when event is not none, so that event: none does not need homeassistant_services
+#if defined(USE_API) && defined(USE_COMELIT_INTERCOM_EVENT)
+        ESP_LOGD(TAG, "Send event to home assistant on %s", event_);
+        esphome::api::CustomAPIDevice capi;
+        capi.fire_homeassistant_event(event_, {{"command", std::to_string(id(command))}, {"address", std::to_string(id(address))}});
 #endif
         for (auto &listener : listeners_) {
           if (!listener->matches(this->command, this->address))

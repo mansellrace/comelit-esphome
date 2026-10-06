@@ -19,7 +19,7 @@ I wanted to connect directly to the printed circuit board of the indoor station,
 I then discovered the wonderful work of **[plusvic](https://github.com/plusvic/simplebus2-intercom)** who analyzed and decoded the simplebus protocol, and made a ring repeater based on a PIC used to decode the protocol, a wireless transmission chip and ESP8266. 
 **[aoihaugen](https://github.com/aoihaugen/simplebus2-intercom)** created a fork, and adapted the code to decode the signal on arduino. I want to give a huge thanks to both of you, without your work I would never have reached my goal, I took abundant cues from both of you for hardware and software.
 
-In my implementation I used a Wemos d1 mini with Esphome-based firmware for easy integration on Home Assistant. Can also interface with Homey Pro
+In my implementation I used a Wemos d1 mini with Esphome-based firmware for easy integration on Home Assistant. Can also interface with [Homey Pro](homey.md)
 
 ![PCB2](/images/pcb2.jpg) ![PCB](/images/pcb.jpg)
 
@@ -108,3 +108,4 @@ An explanation of the commands that can be found on the bus can be found [here](
 - **2026, August**: Two new entities report what travels on the bus: a `text_sensor` showing the last command as `C50_A10`, and an `event` entity tied to one address that fires with the command number.
 - **2026, August**: Boards now ship pre-flashed and keep themselves up to date. Each release is built and published automatically, a **Firmware** update entity shows the new version in Home Assistant, and the device can be adopted in the ESPHome Device Builder to get the whole configuration for editing. Esphome compiler is no longer required for most installations, and the setup is quicker. Blank boards can be flashed from the browser at the [project page](https://mansellrace.github.io/comelit-esphome/).
 - **2026, September**: Thanks to [@matzZz](https://github.com/matzZz) for a Home Assistant blueprint that sends a push notification with an "Open door" button when someone rings. [Details here](#doorbell-notification-on-your-phone)
+- **2026, October**: Thanks to Eladio for testing the board with Homey Pro. [Homey Pro quick guide](homey.md)

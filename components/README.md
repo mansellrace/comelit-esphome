@@ -95,7 +95,7 @@ Configuration examples:
     If you have friendly_name set for your device and you want 
     the sensor to use that name, you can set `name: None`.
 
-- **ack** (*Optional*, boolean): When the sensor's command and address are received, answer with the same short acknowledge an internal intercom sends, so that the caller stops repeating the command. Use it only for an address no real device answers, for example a call to an internal number that does not exist, used only to trigger an automation: otherwise two acknowledges overlap on the bus. No acknowledge is sent while the component is sending a command of its own. Defaults to `false`.
+- **ack** (*Optional*, boolean): When the sensor's command and address are received, answer with the same short acknowledge an internal intercom sends, so that the caller stops repeating the command. Use it only for an address no real device answers, for example a call to an internal number that does not exist, used only to trigger an automation: otherwise two acknowledges overlap on the bus. No acknowledge is sent while the component is sending a command of its own. The entrance panel takes the acknowledge as an answered call: it may announce it, and it keeps the call open until it times out or a door is opened. Defaults to `false`.
 
 Example: command 16 sent by the entrance panel to the non-existent internal 90 opens the doors. The commands sent by the automation follow the acknowledge automatically.
 
@@ -235,7 +235,7 @@ To send commands to the bus, the following action is available:
 - **address** (**Required**, int)
 - **send_attempts** (*Optional*, int): Overrides the `send_attempts` option of `comelit_intercom` for this command only. From `1` to `10`.
 
-The action waits until the command has been sent, so the actions that follow it run only after that. With `send_attempts` above 1 it also waits for the acknowledge, or until all the attempts have been used.
+The action waits until the command has been sent, so the actions that follow it run only after that. With `send_attempts` above 1 it also waits for the acknowledge, or until all the attempts have been used. Then it waits until the bus has been quiet for 100ms (at least 150ms after the command, at most 3 seconds), so that the next command does not overlap the answer to this one.
 
 ### Button:
 The action can be easily inserted into a button type entity:
@@ -274,4 +274,4 @@ Since each send waits until its command has been sent, the commands can simply f
 	    address: 1
 
 Older versions needed a delay of at least 200ms between the commands; leaving it in place does no harm.
-A command sent while another one is still in progress, for example by a different automation, is cancelled, and the log says so.
+A command sent while another one is still in progress, final wait included, for example by a different automation, is cancelled, and the log says so.

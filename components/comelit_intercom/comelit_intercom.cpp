@@ -119,7 +119,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-10-04:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-10-12:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   if (this->tx2_enabled_) {

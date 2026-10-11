@@ -10,6 +10,8 @@ Comelit Intercom component
 >
 >      api:
 >        homeassistant_services: true
+>
+> It is not needed if you set `event: none`.
 
 The ``comelit_intercom`` allows you to easily interface the esphome-comelit project on esphome and home assistant
 
@@ -53,13 +55,14 @@ Configuration variables:
 - **rx_pin** (*Optional*, pin): The pin used to receive commands. Defaults to ``D6``.
 - **tx_pin** (*Optional*, pin): The pin used to transmitt commands. Defaults to ``D1``.
 - **filter** (_Optional_,  [Time](https://esphome.io/guides/configuration-types#config-time)): Filter any pulses that are shorter than this. Useful for removing glitches from noisy signals. Defaults to `1000us`, maximum `2500us`.
--   **idle**  (_Optional_,  [Time](https://esphome.io/guides/configuration-types#config-time)): The amount of time that a signal should remain stable (i.e. not change) for it to be considered complete. Defaults to  `10ms`.
+-   **idle**  (_Optional_,  [Time](https://esphome.io/guides/configuration-types#config-time)): The amount of time that a signal should remain stable (i.e. not change) for it to be considered complete. It must be longer than `filter`. Defaults to  `10ms`.
 -   **buffer_size**  (_Optional_, int): The size of the internal buffer for storing the remote codes. Defaults to  `400b`.
 -  **dump** (_Optional_, bool): If set to on, the timing of received signals is printed on the log. Useful for debugging. If you also set the logger to "VERBOSE" you will also see the raw data received. Defaults to  `false`.
+- **send_attempts** (_Optional_, int): How many times a command is sent if the device it is meant for does not acknowledge it. The receiver of a command answers with a short acknowledge (4 short bursts), and the internal intercoms send the command up to 3 times until it arrives: some devices, for example a secondary entrance panel, only answer from the second or third attempt. With a value above 1 the component waits for the acknowledge after every command, sends it again 730ms after the end of the previous attempt, and stops as soon as the acknowledge arrives. Stopping matters: some commands toggle, for example command 20 switches the video off when it is already on. Tested on Simplebus 2 only. From `1` to `10`, defaults to `1` (no retry).
 - <a id="eventlist">**event**</a>  (_Optional_, string): The name of the event that will be generated on home assistant when receiving a command from the bus. For example, if  set to `comelit`, the event generated will be "esphome.comelit".
 Read more about how to use it in the [Home Assistant event section](#home-assistant-event)
 Default to `comelit`.
-If this parameter is set to `none` no event will be generated.
+If this parameter is set to `none` no event will be generated, and `homeassistant_services: true` is not needed in the api configuration.
 
 
 Binary sensor
@@ -91,6 +94,25 @@ Configuration examples:
     Note:
     If you have friendly_name set for your device and you want 
     the sensor to use that name, you can set `name: None`.
+
+- **ack** (*Optional*, boolean): When the sensor's command and address are received, answer with the same short acknowledge an internal intercom sends, so that the caller stops repeating the command. Use it only for an address no real device answers, for example a call to an internal number that does not exist, used only to trigger an automation: otherwise two acknowledges overlap on the bus. No acknowledge is sent while the component is sending a command of its own. The entrance panel takes the acknowledge as an answered call: it may announce it, and it keeps the call open until it times out or a door is opened. Defaults to `false`.
+
+Example: command 16 sent by the entrance panel to the non-existent internal 90 opens the doors. The commands sent by the automation follow the acknowledge automatically.
+
+	binary_sensor:
+	  - platform: comelit_intercom
+	    command: 16
+	    address: 90
+	    name: Virtual intercom 90
+	    ack: true
+	    auto_off: 1s
+	    on_press:
+	      - comelit_intercom.send:
+	          command: 16
+	          address: 16
+	      - comelit_intercom.send:
+	          command: 29
+	          address: 1
 
 
 
@@ -211,6 +233,9 @@ To send commands to the bus, the following action is available:
 
 - **command** (**Required**, int)
 - **address** (**Required**, int)
+- **send_attempts** (*Optional*, int): Overrides the `send_attempts` option of `comelit_intercom` for this command only. From `1` to `10`.
+
+The action waits until the command has been sent, so the actions that follow it run only after that. With `send_attempts` above 1 it also waits for the acknowledge, or until all the attempts have been used. Then it waits until the bus has been quiet for 100ms (at least 150ms after the command, at most 3 seconds), so that the next command does not overlap the answer to this one.
 
 ### Button:
 The action can be easily inserted into a button type entity:
@@ -239,12 +264,14 @@ You can create a home assistant service, which can easily be invoked by an autom
 
 ### Sending multiple commands:
 There are some special configurations that require sending 2 or more commands consecutively on the bus.
-In this case, a delay of at least 200ms must be inserted between the commands (one command takes about 180ms to be sent)
+Since each send waits until its command has been sent, the commands can simply follow each other:
 
 	- comelit_intercom.send:
-	    command: 29
+	    command: 19
 	    address: 1
-	- delay: 200ms
 	- comelit_intercom.send:
 	    command: 16
 	    address: 1
+
+Older versions needed a delay of at least 200ms between the commands; leaving it in place does no harm.
+A command sent while another one is still in progress, final wait included, for example by a different automation, is cancelled, and the log says so.

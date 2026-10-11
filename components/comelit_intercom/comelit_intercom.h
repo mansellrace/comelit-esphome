@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <utility>
 #include <vector>
 #include "esphome/core/component.h"
@@ -30,6 +31,7 @@ class ComelitIntercomListener {
     void set_command(uint16_t command) { this->command_ = command; }
     template<typename V> void set_address(V address) { this->address_ = address; }
     void set_auto_off(uint16_t auto_off) { this->auto_off_ = auto_off; }
+    void set_ack(bool ack) { this->ack_ = ack; }
 
     /// Return true when a frame concerns this listener. The default matches one exact
     /// command/address pair; the command is checked first so that a templated address is
@@ -49,6 +51,8 @@ class ComelitIntercomListener {
     TemplatableValue<uint16_t> address_;
     uint16_t command_{0};
     uint16_t auto_off_{0};
+    /// Answer the matching frames with an acknowledge, as an internal intercom does.
+    bool ack_{false};
 };
 
 /// Listener driven by a list of commands; an empty list accepts every command.
@@ -82,8 +86,9 @@ struct ComelitComponentStore {
 
 class ComelitComponent : public Component {
  public:
-  void comelit_decode(std::vector<uint16_t> src);
-  void dump(std::vector<uint16_t>) const;
+  void comelit_decode(std::vector<uint32_t> src);
+  void dump(std::vector<uint32_t>) const;
+  bool is_ack(std::vector<uint32_t> src) const;
   void sending_loop_simplebus_2();
   void sending_loop_simplebus_1();
 
@@ -99,13 +104,16 @@ class ComelitComponent : public Component {
   void set_dump(bool dump_raw) { this->dump_raw_ = dump_raw; }
   void set_event(const char *event) { this->event_ = event; }
   void set_simplebus_1(bool simplebus_1) { this->simplebus_1_ = simplebus_1; }
+  void set_send_attempts(uint8_t send_attempts) { this->send_attempts_ = send_attempts; }
 
   void setup() override;
   void dump_config() override;
   void loop() override;
   uint16_t command, address;
   void register_listener(ComelitIntercomListener *listener);
-  void send_command(ComelitIntercomData data);
+  /// Returns false if another sending is in progress. on_sent is called when the sending is complete.
+  /// send_attempts overrides the component setting for this command, 0 keeps it.
+  bool send_command(ComelitIntercomData data, std::function<void()> on_sent = nullptr, uint8_t send_attempts = 0);
   bool send_buffer[19];
   bool sending, preamble;
   int send_index;
@@ -128,9 +136,31 @@ class ComelitComponent : public Component {
   uint32_t buffer_size_{};
   uint32_t time_cap{0};
   bool capacitor{false};
+  uint8_t send_attempts_{1};
+  uint8_t max_attempts_{1};
+  uint8_t attempt_{0};
+  bool waiting_ack_{false};
+  uint32_t retry_at_{0};
+  ComelitIntercomData send_data_{};
+  bool settling_{false};
+  uint32_t sent_at_{0};
+  std::function<void()> on_sent_{nullptr};
+  uint8_t send_length_{19};
+  // acknowledge sent to a received frame, and the one command that may wait for it
+  void schedule_ack_();
+  void start_ack_();
+  void start_send_(ComelitIntercomData data, std::function<void()> on_sent, uint8_t send_attempts);
+  bool ack_phase_{false};
+  bool ack_sending_{false};
+  uint32_t ack_at_{0};
+  ComelitIntercomData ack_data_{};
+  bool queued_{false};
+  ComelitIntercomData queued_data_{};
+  std::function<void()> queued_on_sent_{nullptr};
+  uint8_t queued_attempts_{0};
 
   HighFrequencyLoopRequester high_freq_;
-  std::vector<uint16_t> temp_;
+  std::vector<uint32_t> temp_;
   std::vector<ComelitIntercomListener *> listeners_{};
 };
 
@@ -139,16 +169,24 @@ template<typename... Ts> class ComelitIntercomSendAction : public Action<Ts...> 
   ComelitIntercomSendAction(ComelitComponent *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(uint16_t, command)
   TEMPLATABLE_VALUE(uint16_t, address)
+  void set_send_attempts(uint8_t send_attempts) { this->send_attempts_ = send_attempts; }
 
-  void play(const Ts &... x) override {
+  // the next action runs only when the sending is complete, acknowledge and retries included,
+  // so consecutive sends need no delay between them
+  void play_complex(const Ts &... x) override {
+    this->num_running_++;
     ComelitIntercomData data{};
     data.command = this->command_.value(x...);
     data.address = this->address_.value(x...);
-    this->parent_->send_command(data);
+    if (!this->parent_->send_command(data, [this, x...]() mutable { this->play_next_(x...); }, this->send_attempts_))
+      this->play_next_(x...);
   }
+
+  void play(const Ts &... x) override { /* see play_complex */ }
 
  protected:
   ComelitComponent *parent_;
+  uint8_t send_attempts_{0};
 };
 
 

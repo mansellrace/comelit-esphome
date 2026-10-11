@@ -1,6 +1,8 @@
 #include "comelit_intercom.h"
 #include "esphome/core/log.h"
+#ifdef USE_API
 #include "esphome/components/api/custom_api_device.h"
+#endif
 #include "esphome/core/application.h"
 #include <Arduino.h>
 
@@ -8,6 +10,9 @@ namespace esphome {
 namespace comelit_intercom {
 
 static const char *const TAG = "comelit_intercom";
+// delay between decoding a frame and starting its acknowledge; the frame is decoded idle_us
+// after its end, real devices answer 20-80ms after the end of the frame
+static const uint32_t ACK_DELAY_MS = 20;
 
 ComelitComponent *global_comelit_intercom = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
@@ -98,6 +103,10 @@ void ComelitComponent::setup() {
   s.buffer = new uint32_t[s.buffer_size];
   void *buf = (void *) s.buffer;
   memset(buf, 0, s.buffer_size * sizeof(uint32_t));
+  // start on the last (odd) index, so that the first edge accepted is a carrier start at index 0:
+  // starting on index 0 the first carrier start failed the parity check and the first pulse was lost
+  s.buffer_write_at = s.buffer_size - 1;
+  s.buffer_read_at = s.buffer_size - 1;
 
   s.rx_pin = this->rx_pin_->to_isr();
   //s.reset();
@@ -110,7 +119,7 @@ void ComelitComponent::setup() {
 }
 
 void ComelitComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-08-22:");
+  ESP_LOGCONFIG(TAG, "Comelit Intercom v. 2026-10-12:");
   LOG_PIN("  Pin RX: ", this->rx_pin_);
   LOG_PIN("  Pin TX: ", this->tx_pin_);
   if (this->tx2_enabled_) {
@@ -184,11 +193,14 @@ void ComelitComponent::dump_config() {
   } else {
     ESP_LOGCONFIG(TAG, "  Simplebus tx protocol: 2");
   }
-  if (strcmp(event_, "esphome.none") != 0) {
-    ESP_LOGCONFIG(TAG, "  Event: %s", event_);
-  } else {
-    ESP_LOGCONFIG(TAG, "  Event: disabled");
-  }
+  ESP_LOGCONFIG(TAG, "  Send attempts: %i", send_attempts_);
+#if defined(USE_API) && defined(USE_COMELIT_INTERCOM_EVENT)
+  ESP_LOGCONFIG(TAG, "  Event: %s", event_);
+#elif defined(USE_COMELIT_INTERCOM_EVENT)
+  ESP_LOGCONFIG(TAG, "  Event: disabled, no api component");
+#else
+  ESP_LOGCONFIG(TAG, "  Event: disabled");
+#endif
 }
 
 void ComelitComponent::loop() {
@@ -209,12 +221,70 @@ void ComelitComponent::loop() {
     } else {
       sending_loop_simplebus_2();
     }
+    if (!this->sending) {
+      this->sent_at_ = millis();
+      if (this->ack_sending_) {
+        this->ack_sending_ = false;
+        this->settling_ = true;
+      } else if (this->max_attempts_ > 1) {
+        // frame sent: wait for the acknowledge, like the intercom does, before sending it again
+        this->waiting_ack_ = true;
+        this->retry_at_ = this->sent_at_ + 730;
+      } else {
+        this->settling_ = true;
+      }
+    }
     return;
   }
 
   auto &s = this->store_;
   const uint32_t write_at = s.buffer_write_at;
   const uint32_t dist = (s.buffer_size + write_at - s.buffer_read_at) % s.buffer_size;
+  // acknowledge a received frame, unless another frame is still waiting to be decoded
+  if (this->ack_phase_ && !this->settling_ && dist <= 1 && (int32_t) (now_millis - this->ack_at_) >= 0) {
+    this->start_ack_();
+    return;
+  }
+  // no ACK in time: send again, but not while a received frame is still waiting to be decoded
+  if (this->waiting_ack_ && dist <= 1 && (int32_t) (now_millis - this->retry_at_) >= 0) {
+    this->waiting_ack_ = false;
+    if (this->attempt_ < this->max_attempts_) {
+      this->attempt_++;
+      ESP_LOGD(TAG, "No ACK, sending command %i address %i again (attempt %i of %i)", this->send_data_.command,
+               this->send_data_.address, this->attempt_, this->max_attempts_);
+      this->rx_pin_->detach_interrupt();
+      if (capacitor) {
+        digitalWrite(13, LOW);
+        time_cap = millis() + 3000;
+      }
+      this->sending = true;
+      this->preamble = true;
+      return;
+    }
+    ESP_LOGD(TAG, "No ACK for command %i address %i after %i attempts", this->send_data_.command,
+             this->send_data_.address, this->attempt_);
+    this->settling_ = true;
+  }
+  // sending complete once the bus has been quiet for 100ms, so that the next command does not
+  // overlap the answer to this one; then the automation that sent it goes on
+  if (this->settling_ && now_millis - this->sent_at_ >= 150 &&
+      ((dist <= 1 && micros() - s.buffer[write_at] >= 100000) || now_millis - this->sent_at_ >= 3000)) {
+    this->settling_ = false;
+    if (this->on_sent_ != nullptr) {
+      std::function<void()> on_sent = std::move(this->on_sent_);
+      this->on_sent_ = nullptr;
+      on_sent();
+    }
+    if (this->ack_phase_) {
+      this->ack_phase_ = false;
+      if (this->queued_) {
+        this->queued_ = false;
+        this->start_send_(this->queued_data_, std::move(this->queued_on_sent_), this->queued_attempts_);
+        this->queued_on_sent_ = nullptr;
+      }
+    }
+    return;
+  }
   // signals must at least one rising and one leading edge
   if (dist <= 1)
     return;
@@ -225,7 +295,11 @@ void ComelitComponent::loop() {
   }
 
   // Skip first value, it's from the previous idle level
+  const uint32_t last_edge = s.buffer[s.buffer_read_at];
   s.buffer_read_at = (s.buffer_read_at + 1) % s.buffer_size;
+  const uint32_t skipped_us = s.buffer[s.buffer_read_at] - last_edge;
+  // rx pin is high during carrier and the isr stores the inverted level: odd index = end of carrier
+  const bool skipped_mark = (s.buffer_read_at % 2) == 1;
   uint32_t prev = s.buffer_read_at;
   s.buffer_read_at = (s.buffer_read_at + 1) % s.buffer_size;
   const uint32_t reserve_size = 1 + (s.buffer_size + write_at - s.buffer_read_at) % s.buffer_size;
@@ -245,9 +319,18 @@ void ComelitComponent::loop() {
   s.buffer_read_at = (s.buffer_size + s.buffer_read_at - 1) % s.buffer_size;
   this->temp_.push_back(this->idle_us_);
 
-  if (this->temp_.size() > 1 && this->dump_raw_) {
-    ESP_LOGD(TAG, "Received Raw with size %i", temp_.size());
-    this->dump(temp_);
+  const bool ack = (this->dump_raw_ || this->waiting_ack_) && is_ack(temp_);
+  if (this->dump_raw_) {
+    ESP_LOGD(TAG, "Received Raw with size %i, preceded by %s of %" PRIu32 " us", temp_.size(),
+             skipped_mark ? "MARK" : "space", skipped_us);
+    if (this->temp_.size() > 1) this->dump(temp_);
+    if (ack) ESP_LOGD(TAG, "Received ACK");
+  }
+  if (ack && this->waiting_ack_) {
+    ESP_LOGD(TAG, "ACK received for command %i address %i at attempt %i", this->send_data_.command,
+             this->send_data_.address, this->attempt_);
+    this->waiting_ack_ = false;
+    this->settling_ = true;
   }
   if (this->temp_.size() == 76 && this->simplebus_1_ == false) {
     ESP_LOGD(TAG, "Warning! received simplebus 1 command but your transmission section is set to simplebus 2.");
@@ -258,12 +341,12 @@ void ComelitComponent::loop() {
   }
 }
 
-void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
+void ComelitComponent::comelit_decode(std::vector<uint32_t> src) {
   char message[18];
   int bits = 0;
   if (src.size() == 38) {
     for (uint16_t i = 1; i < src.size() - 1; i = i + 2) {
-      const uint16_t value = src[i];
+      const uint32_t value = src[i];
         if (value < 3200 && value > 1000) {
           message[bits] = 0;
           bits += 1;
@@ -275,7 +358,7 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
     }
   } else if (src.size() == 76) {
     for (uint16_t i = 3; i < src.size() - 1; i = i + 4) {
-      const uint16_t value = src[i];
+      const uint32_t value = src[i];
         if (value < 2500 && value > 1000) {
           message[bits] = 0;
           bits += 1;
@@ -305,12 +388,21 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
       this->address = (msgCode[7] * 128) + (msgCode[6] * 64) + (msgCode[5] * 32) + (msgCode[4] * 16) + (msgCode[3] * 8) + (msgCode[2] * 4) + (msgCode[1] * 2) + msgCode[0];
       if (this->command != 63){
         ESP_LOGD(TAG, "Received command %i, address %i", this->command, this->address);
-        
-        if (strcmp(event_, "esphome.none") != 0) {
-          ESP_LOGD(TAG, "Send event to home assistant on %s", event_);
-          esphome::api::CustomAPIDevice capi;
-          capi.fire_homeassistant_event(event_, {{"command", std::to_string(id(command))}, {"address", std::to_string(id(address))}});
+
+        // before the listeners: a command sent by their automations must wait for the acknowledge
+        for (auto &listener : listeners_) {
+          if (listener->ack_ && listener->matches(this->command, this->address)) {
+            this->schedule_ack_();
+            break;
+          }
         }
+
+        // compiled in only when event is not none, so that event: none does not need homeassistant_services
+#if defined(USE_API) && defined(USE_COMELIT_INTERCOM_EVENT)
+        ESP_LOGD(TAG, "Send event to home assistant on %s", event_);
+        esphome::api::CustomAPIDevice capi;
+        capi.fire_homeassistant_event(event_, {{"command", std::to_string(id(command))}, {"address", std::to_string(id(address))}});
+#endif
         for (auto &listener : listeners_) {
           if (!listener->matches(this->command, this->address))
             continue;
@@ -321,6 +413,37 @@ void ComelitComponent::comelit_decode(std::vector<uint16_t> src) {
       }
     }
   }
+}
+
+bool ComelitComponent::is_ack(std::vector<uint32_t> src) const {
+  // simplebus 1 acknowledge: 4 bursts of 3ms, each seen as two ~1.5ms pulses (as in simplebus 1 commands),
+  // so 15 short values, then idle or a spike. A command starting with four 0 bits begins the same way,
+  // but goes on for 76 values.
+  if (src.size() >= 16 && src.size() <= 18) {
+    bool sb1 = true;
+    for (uint16_t i = 0; i < 15; i++) {
+      if (!(src[i] < 2000 && src[i] > 1000)) {
+        sb1 = false;
+        break;
+      }
+    }
+    if (sb1 && src[15] > 2000) return true;
+  }
+  // acknowledge: 4 bursts separated by 3ms spaces, often followed by a short spike.
+  // A weak acknowledge on a busy bus (an open call) shows bursts down to ~2.9ms and spaces up to ~3.3ms.
+  if (src.size() < 8) return false;
+  for (uint16_t i = 0; i < 7; i++) {
+    const uint32_t value = src[i];
+    if (i % 2 == 0) {
+      if (!(value < 6200 && value > 2500)) return false;
+    } else {
+      if (!(value < 3500 && value > 1000)) return false;
+    }
+  }
+  // a command starting with three 0 bits goes on with a bit space and a full burst; command bursts
+  // stay above 3.5ms even when an ACK is weak, and a short spike after the ACK must not count as one
+  if (src.size() > 8 && src[7] < 6200 && src[8] < 6200 && src[8] > 3500) return false;
+  return true;
 }
 
 void IRAM_ATTR HOT ComelitComponentStore::gpio_intr(ComelitComponentStore *arg) {
@@ -337,18 +460,24 @@ void IRAM_ATTR HOT ComelitComponentStore::gpio_intr(ComelitComponentStore *arg) 
 
   const uint32_t last_change = arg->buffer[arg->buffer_write_at];
   const uint32_t time_since_change = now - last_change;
-  if (time_since_change <= arg->filter_us)
+  if (time_since_change <= arg->filter_us) {
+    // a pulse shorter than the filter: drop its first edge too, otherwise the level stays
+    // inverted and the first edge of the next real pulse is discarded by the parity check.
+    // The reader never holds an edge this recent, unless it is its own reference edge.
+    if (arg->buffer_write_at != arg->buffer_read_at)
+      arg->buffer_write_at = (arg->buffer_write_at + arg->buffer_size - 1) % arg->buffer_size;
     return;
+  }
 
   arg->buffer[arg->buffer_write_at = next] = now;
 }
 
-void ComelitComponent::dump(std::vector<uint16_t> src) const {
+void ComelitComponent::dump(std::vector<uint32_t> src) const {
   char buffer[128];
   uint32_t buffer_offset = 0;
   buffer_offset += sprintf(buffer, "Raw: ");
   for (uint16_t i = 0; i < src.size() - 1; i++) {
-    const uint16_t value = src[i];
+    const uint32_t value = src[i];
     const uint32_t remaining_length = sizeof(buffer) - buffer_offset;
     int written;
 
@@ -383,11 +512,58 @@ void ComelitComponent::register_listener(ComelitIntercomListener *listener) {
   }
 
 
-void ComelitComponent::send_command(ComelitIntercomData data) {
-  if (this->sending){
-    ESP_LOGD(TAG, "Sending of command %i address %i cancelled, another sending is in progress", data.command, data.address);
+void ComelitComponent::schedule_ack_() {
+  if (this->sending || this->waiting_ack_ || this->settling_ || this->ack_phase_) {
+    ESP_LOGD(TAG, "ACK for command %i address %i skipped, another sending is in progress", this->command,
+             this->address);
     return;
   }
+  this->ack_data_.command = this->command;
+  this->ack_data_.address = this->address;
+  this->ack_phase_ = true;
+  this->ack_at_ = millis() + ACK_DELAY_MS;
+}
+
+void ComelitComponent::start_ack_() {
+  ESP_LOGD(TAG, "Sending ACK for command %i address %i", this->ack_data_.command, this->ack_data_.address);
+  this->rx_pin_->detach_interrupt();
+  if (capacitor) {
+    digitalWrite(13, LOW);
+    time_cap = millis() + 3000;
+  }
+  // acknowledge: 4 bursts separated by 3ms spaces, that is four 0 bits without the start pulse
+  for (int i = 0; i < 4; i++) {
+    this->send_buffer[i] = false;
+  }
+  this->send_length_ = 4;
+  this->send_index = 0;
+  const uint32_t now = micros();
+  this->send_next_bit = now + 3000;
+  this->send_next_change = this->simplebus_1_ ? now + 3020 : now + 20;
+  this->preamble = false;
+  this->ack_sending_ = true;
+  this->sending = true;
+}
+
+bool ComelitComponent::send_command(ComelitIntercomData data, std::function<void()> on_sent, uint8_t send_attempts) {
+  if (this->ack_phase_ && !this->queued_) {
+    // a frame received just now is being acknowledged: this command follows the acknowledge
+    ESP_LOGD(TAG, "Command %i address %i will be sent after the ACK", data.command, data.address);
+    this->queued_ = true;
+    this->queued_data_ = data;
+    this->queued_on_sent_ = std::move(on_sent);
+    this->queued_attempts_ = send_attempts;
+    return true;
+  }
+  if (this->sending || this->waiting_ack_ || this->settling_ || this->ack_phase_){
+    ESP_LOGD(TAG, "Sending of command %i address %i cancelled, another sending is in progress", data.command, data.address);
+    return false;
+  }
+  this->start_send_(data, std::move(on_sent), send_attempts);
+  return true;
+}
+
+void ComelitComponent::start_send_(ComelitIntercomData data, std::function<void()> on_sent, uint8_t send_attempts) {
   if (this->simplebus_1_){
     ESP_LOGD(TAG, "Simplebus 1: Sending command %i, address %i", data.command, data.address);
   } else {
@@ -431,6 +607,11 @@ void ComelitComponent::send_command(ComelitIntercomData data) {
   this->send_buffer[this->send_index] = false;
 
   this->send_index = 0;
+  this->send_length_ = 19;
+  this->send_data_ = data;
+  this->attempt_ = 1;
+  this->max_attempts_ = send_attempts > 0 ? send_attempts : this->send_attempts_;
+  this->on_sent_ = std::move(on_sent);
   this->sending = true;
   this->preamble = true;
 }
@@ -468,7 +649,7 @@ void ComelitComponent::sending_loop_simplebus_2() {
       this->preamble = false;
     }
   } else {                                       // bit sending routine, preamble ended
-    if (this->send_index < 19) {
+    if (this->send_index < this->send_length_) {
       if (this->send_next_change > 0) {           // carrier generation
         while (this->send_next_bit >= micros()) {
           if (this->send_next_change < micros()) {
@@ -521,7 +702,7 @@ void ComelitComponent::sending_loop_simplebus_1() {
       while (this->send_next_bit >= micros()) {
       }
       this->send_next_bit = 0;
-      this->send_next_change = now + 16000;
+      this->send_next_change = now + 3000 + 16000;  // 16ms pause after the 3ms start pulse, as in simplebus 2
       this->tx_pin_->digital_write(false);
       if (this->tx2_enabled_) {
         this->tx2_pin_->digital_write(false);
@@ -534,7 +715,7 @@ void ComelitComponent::sending_loop_simplebus_1() {
       this->preamble = false;
     }
   } else {                                       // bit sending routine, preamble ended
-    if (this->send_index < 19) {
+    if (this->send_index < this->send_length_) {
       if (this->send_next_change > 0) {           // carrier generation
         this->tx_pin_->digital_write(true);
         if (this->tx2_enabled_) {

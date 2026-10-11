@@ -54,5 +54,5 @@ update:
   - platform: http_request
     id: firmware_update
     name: Firmware
-    source: http://mansellrace.synology.me:13333/manifest.json
+    source: http://ota.fradimar.casa:13333/manifest.json
     update_interval: 6h

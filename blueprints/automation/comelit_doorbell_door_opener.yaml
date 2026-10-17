@@ -123,7 +123,7 @@ variables:
   txt_opened: !input txt_opened
   btn_open: !input btn_open
   btn_ignore: !input btn_ignore
-  tag: "{{ 'comelit_doorbell_' ~ (this.entity_id | default('automation') | replace('.', '_')) }}"
+  tag: "{{ 'comelit_' ~ (this.entity_id | default('automation') | sha256)[:32] }}"
   # List of phones to notify: index, name, notify service
   targets: >-
     {%- set ns = namespace(l=[]) -%}
